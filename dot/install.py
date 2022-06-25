@@ -27,7 +27,6 @@ class InstallNode:
 
 def mark_all_children_not_already_marked(
     source_package_root: Path,
-    exclude_dirs: list[str],
     parent: Path,
     mark: str,
     plan: dict[Path, InstallNode],
@@ -35,17 +34,15 @@ def mark_all_children_not_already_marked(
     leaf = source_package_root / parent
     for child in leaf.iterdir():
         f = child.relative_to(source_package_root)
-        if should_exclude_this_object(child, exclude_dirs):
-            continue
-        if f not in plan:
-            plan[f] = InstallNode(mark)
+        if f in plan and plan[f].action == "none":
+            plan[f].action = mark
 
 
 def mark_all_parents(leaf: Path, mark: str, stop_mark: str, plan: dict[Path, InstallNode]):
     for parent in leaf.parents:
         if parent in plan and plan[parent].action == stop_mark:
             break
-        plan[parent] = InstallNode(mark)
+        plan[parent].action = mark
 
 
 def should_exclude_this_object(object: Path, exclude_dirs: list[str]=None) -> bool:
@@ -99,34 +96,33 @@ def plan_install_paths(source_package_root: Path, exclude_dirs: list[str]=None) 
 def plan_install(source_package_root: Path, destination_root: Path, exclude_dirs: list[str]=None) -> dict[Path, InstallNode]:
     plan: dict[Path, InstallNode] = plan_install_paths(source_package_root, exclude_dirs)
 
-    for dirpath, dirnames, filenames in os.walk(source_package_root, False):
-        full_target = Path(dirpath)
-        if should_exclude_this_object(full_target, exclude_dirs):
+    for current_root, child_directories, child_files in os.walk(source_package_root, topdown=False):
+        current_root_path = Path(current_root)
+        relative_root_path = current_root_path.relative_to(source_package_root)
+        if relative_root_path not in plan:
             continue
 
-        target = full_target.relative_to(source_package_root)
+        found_children_to_rename = False
+        for child in child_directories + child_files:
+            child_relative_source_path = relative_root_path / child
+            if plan[child_relative_source_path].requires_rename:
+                found_children_to_rename = True
 
-        found_files_to_rename = False
-        for object in full_target.glob("dot-*"):
-            found_files_to_rename = True
-            plan[object.relative_to(source_package_root)].action = "link-rename"
-
-        if full_target == source_package_root:
-            plan[target].action = "exists"
-        elif found_files_to_rename:
-            plan[target].action = "create"
-            mark_all_parents(target, mark="create", stop_mark="exists", plan=plan)
-        elif (destination_root / target).exists():
-            plan[target].action = "exists"
-            mark_all_parents(target, mark="exists", stop_mark="exists", plan=plan)
+        if current_root_path == source_package_root:
+            plan[relative_root_path].action = "exists"
+        elif found_children_to_rename:
+            plan[relative_root_path].action = "create"
+            mark_all_parents(relative_root_path, mark="create", stop_mark="exists", plan=plan)
+        elif (destination_root / relative_root_path).exists():
+            plan[relative_root_path].action = "exists"
+            mark_all_parents(relative_root_path, mark="exists", stop_mark="exists", plan=plan)
         else:
-            plan[target].action = "link"
+            plan[relative_root_path].action = "link"
 
-        if plan[target].action in {"create", "exists"}:
-            mark_all_children_not_already_marked(source_package_root, exclude_dirs, target, mark="link", plan=plan)
-        elif plan[target].action == "link":
-            mark_all_children_not_already_marked(source_package_root, exclude_dirs, target, mark="skip", plan=plan)
+        if plan[relative_root_path].action in {"create", "exists"}:
+            mark_all_children_not_already_marked(source_package_root, relative_root_path, mark="link", plan=plan)
+        elif plan[relative_root_path].action == "link":
+            mark_all_children_not_already_marked(source_package_root, relative_root_path, mark="skip", plan=plan)
 
     del plan[Path(".")]
-    debug_print_plan(source_package_root, plan)
     return plan
