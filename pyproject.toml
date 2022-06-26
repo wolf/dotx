@@ -1,2 +1,12 @@
+[project]
+name = "dotfiles"
+version = "0.1"
+
+[tools.setuptools.packages]
+find = {}
+
+[project.scripts]
+dotfiles = "cli:cli"
+
 [tool.black]
 line-length = 120
