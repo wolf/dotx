@@ -2,11 +2,11 @@ import os
 from pathlib import Path
 
 from dotfiles.ignore import should_ignore_this_object
-from dotfiles.plan import Action, PlanNode, Plan, mark_all_parents, mark_immediate_children_not_already_marked
+from dotfiles.plan import Action, PlanNode, Plan, mark_all_parents, mark_immediate_children
 
 
 def plan_install_paths(source_package_root: Path, exclude_dirs: list[str] = None) -> Plan:
-    plan: Plan = {Path("."): PlanNode(Action.EXISTS, False, Path("."), Path("."))}
+    plan: Plan = {Path("."): PlanNode(Action.EXISTS, False, Path("."), Path("."), True)}
 
     # For calculating destination path-names, I traverse the file tree top-down
     for current_root, child_directories, child_files in os.walk(source_package_root):
@@ -28,15 +28,17 @@ def plan_install_paths(source_package_root: Path, exclude_dirs: list[str] = None
             else:
                 child_relative_destination_path = current_destination_path / child
             plan[child_relative_source_path] = PlanNode(
-                Action.NONE, requires_rename, child_relative_source_path, child_relative_destination_path
+                Action.NONE,
+                requires_rename,
+                child_relative_source_path,
+                child_relative_destination_path,
+                (source_package_root / child_relative_source_path).is_dir(),
             )
 
     return plan
 
 
-def plan_install(
-        source_package_root: Path, destination_root: Path, exclude_dirs: list[str] = None
-) -> Plan:
+def plan_install(source_package_root: Path, destination_root: Path, exclude_dirs: list[str] = None) -> Plan:
     plan: Plan = plan_install_paths(source_package_root, exclude_dirs)
 
     for current_root, child_directories, child_files in os.walk(source_package_root, topdown=False):
@@ -52,6 +54,9 @@ def plan_install(
                 continue
             if plan[child_relative_source_path].requires_rename:
                 found_children_to_rename = True
+            destination_path = destination_root / plan[child_relative_source_path].relative_destination_path
+            if destination_path.exists() and destination_path.is_file():
+                plan[child_relative_source_path].action = Action.FAIL
 
         if current_root_path == source_package_root:
             plan[relative_root_path].action = Action.EXISTS
@@ -65,13 +70,20 @@ def plan_install(
             plan[relative_root_path].action = Action.LINK
 
         if plan[relative_root_path].action in {Action.CREATE, Action.EXISTS}:
-            mark_immediate_children_not_already_marked(source_package_root, relative_root_path, mark=Action.LINK,
-                                                       plan=plan)
+            mark_immediate_children(
+                source_package_root, relative_root_path, mark=Action.LINK, plan=plan, allow_overwrite={Action.NONE}
+            )
         elif plan[relative_root_path].action == Action.LINK:
-            mark_immediate_children_not_already_marked(source_package_root, relative_root_path, mark=Action.SKIP,
-                                                       plan=plan)
+            mark_immediate_children(
+                source_package_root,
+                relative_root_path,
+                mark=Action.SKIP,
+                plan=plan,
+                allow_overwrite={Action.NONE, Action.LINK},
+            )
 
     del plan[Path(".")]
     return plan
+
 
 # TODO: def execute_plan
