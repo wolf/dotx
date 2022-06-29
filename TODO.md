@@ -1,4 +1,13 @@
-* More tests
-* Uninstall (feels like I can't do this with perfect fidelity)
-* Unit tests that look at deeper functions than just `plan_install`
-* Check for leaf files existing, that should throw an exception: this install can't be done without destroying files
+- [x] If ignore strings go into the context, do I have to pass the context into all my deeper-level functions?  I probably do anyway for DEBUG and VERBOSE settings.  (No, I can actually get the current context directly without passing it all the way down.  Wrote `is_debug_mode()` and friends to leverage this.  Too bad I had to test them by hand.)
+- [x] Figure out how to test `options.is_debug_mode()` and friends (Click doesn't seem to want to do the right thing here, so tested by hand)
+- [x] Collect all plans before executing _any_ plans
+- [x] Collect a list of plans, one plan per package to be installed; then report all failures at the end
+- [ ] Add logging
+- [ ] Add VERBOSE and DEBUG output
+- [ ] Unit tests that look at deeper functions than just `plan_install`
+- [ ] For testing, is there a better way of creating all these test files and test directories.  I'm fine with how I make the roots
+- [ ] Uninstall (feels like I can't do this with perfect fidelity)
+  - [ ] Can I delete empty directories I _might_ have created during installation?
+- [x] Check for leaf files existing, that should throw an exception: this install can't be done without destroying files
+- [ ] What else goes in pyproject.toml?
+- [ ] How good can I make ignore.py without it taking over the whole project?  Is ignoring single directories good enough for now?

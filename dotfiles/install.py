@@ -1,6 +1,8 @@
 import os
 from pathlib import Path
 
+import click
+
 from dotfiles.ignore import should_ignore_this_object
 from dotfiles.plan import Action, PlanNode, Plan, mark_all_parents, mark_immediate_children
 

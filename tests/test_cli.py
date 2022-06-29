@@ -2,6 +2,8 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from click.testing import CliRunner
+import pytest
+
 
 from cli import cli
 
@@ -15,4 +17,12 @@ def test_install_normal_file():
         runner = CliRunner()
         result = runner.invoke(cli, f"--target={destination_root} install {source_package_root}")
 
-        assert "fail" not in result.output
+        assert "can't install" not in result.output
+
+
+@pytest.mark.skip("Click isn't doing the right thing here.")
+def test_options_functions():
+    runner = CliRunner
+    result = runner.invoke(cli, "--verbose --debug --dry-run debug")
+
+    assert len(result.output) == 0

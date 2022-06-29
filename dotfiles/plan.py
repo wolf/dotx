@@ -3,6 +3,8 @@ from enum import Enum
 import os
 from pathlib import Path
 
+import click
+
 
 class Action(Enum):
     FAIL = "fail"
@@ -63,9 +65,14 @@ def debug_print_plan(source_package_root: Path, plan: Plan):
 
 def debug_print_extracted_plan(plan: Plan):
     for node in extract_plan(plan, {Action.LINK, Action.UNLINK, Action.CREATE}):
-        print(node)
+        click.echo(node)
 
 
 def debug_print_extracted_failures(plan: Plan):
     for node in extract_plan(plan, {Action.FAIL}):
-        print(node)
+        click.echo(node)
+
+
+def execute_plan(source_package_root: Path, destination_root: Path, plan: Plan):
+    click.echo(f"Installing from {source_package_root} into {destination_root}:")
+    debug_print_extracted_plan(plan)
