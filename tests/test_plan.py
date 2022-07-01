@@ -14,13 +14,11 @@ def test_extract_dir_inside_dir_failures():
         file_path1 = dir2_path / "SIMPLE-FILE1"
         file_path2 = dir2_path / "SIMPLE-FILE2"
         file_path3 = dir1_path / "SIMPLE-FILE3"  # Note: this is at the higher level
-        (source_package_root_path / dir1_path).mkdir()
-        (source_package_root_path / dir2_path).mkdir()
+        (source_package_root_path / dir2_path).mkdir(parents=True)
         (source_package_root_path / file_path1).touch()
         (source_package_root_path / file_path2).touch()
         (source_package_root_path / file_path3).touch()
-        (destination_root_path / dir1_path).mkdir()
-        (destination_root_path / dir2_path).mkdir()
+        (destination_root_path / dir2_path).mkdir(parents=True)
         (destination_root_path / file_path1).touch()
         (destination_root_path / file_path2).touch()
         (destination_root_path / file_path3).touch()

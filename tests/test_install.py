@@ -84,8 +84,7 @@ def test_install_dir_inside_dir():
         dir1_path = Path("SIMPLE-DIR1")
         dir2_path = dir1_path / "SIMPLE-DIR2"
         file_path = dir2_path / "SIMPLE-FILE"
-        (source_package_root_path / dir1_path).mkdir()
-        (source_package_root_path / dir2_path).mkdir()
+        (source_package_root_path / dir2_path).mkdir(parents=True)
         (source_package_root_path / file_path).touch()
 
         plan = plan_install(source_package_root_path, Path(destination_root))
@@ -223,8 +222,7 @@ def test_install_renamed_dir_inside_renamed_dir():
         dir1_path = Path("dot-SIMPLE-DIR1")
         dir2_path = dir1_path / "dot-SIMPLE-DIR2"
         file_path = dir2_path / "SIMPLE-FILE"
-        (source_package_root_path / dir1_path).mkdir()
-        (source_package_root_path / dir2_path).mkdir()
+        (source_package_root_path / dir2_path).mkdir(parents=True)
         (source_package_root_path / file_path).touch()
 
         plan = plan_install(source_package_root_path, Path(destination_root))
