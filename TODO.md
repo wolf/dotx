@@ -3,7 +3,8 @@
 - [x] Collect all plans before executing _any_ plans
 - [x] Collect a list of plans, one plan per package to be installed; then report all failures at the end
 - [ ] For testing, is there a better way of creating all these test files and test directories.  I'm fine with how I make the roots
-- [ ] Add logging
+- [x] Set up logging
+- [ ] Log everything
 - [ ] Add VERBOSE and DEBUG output
 - [ ] Unit tests that look at deeper functions than just `plan_install`
 - [ ] Uninstall (feels like I can't do this with perfect fidelity)

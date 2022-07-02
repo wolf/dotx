@@ -1,3 +1,4 @@
+import logging
 import pathlib
 
 import click
@@ -20,6 +21,11 @@ from dotfiles.install import plan_install
 def cli(ctx, debug, verbose, target, dry_run):
     """Manage a link farm: install and uninstall groups of links from "source packages"."""
     ctx.obj = {"DEBUG": debug, "VERBOSE": verbose, "TARGET": target, "DRYRUN": dry_run}
+    logging.basicConfig(
+        format="%(asctime)s:%(levelname)s:%(message)s",
+        level=logging.DEBUG if debug else logging.WARNING
+    )
+    logging.info(ctx.obj)
 
 
 @cli.command()
@@ -31,12 +37,15 @@ def cli(ctx, debug, verbose, target, dry_run):
 @click.pass_context
 def install(ctx, sources):
     """install [source-package...]"""
+    logging.info("install starting")
     destination_root = ctx.obj["TARGET"]
 
     if sources:
         plans: list[(pathlib.Path, Plan)] = []
         for source_package in sources:
+            logging.info(f"Planning install of source package: {source_package}")
             plan: Plan = plan_install(source_package, destination_root, [".mypy_cache"])
+            logging.info(f"{extract_plan(plan, {Action.LINK, Action.UNLINK, Action.CREATE})}")
             plans.append((source_package, plan))
 
         can_install = True
@@ -54,6 +63,7 @@ def install(ctx, sources):
                 execute_plan(source_package, destination_root, plan)
         else:
             click.echo("Refusing to install anything because of previous failures.")
+    logging.info("install finished")
 
 
 @cli.command()
