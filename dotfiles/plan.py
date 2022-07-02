@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from enum import Enum
+import logging
 import os
 from pathlib import Path
 
@@ -63,16 +64,23 @@ def debug_print_plan(source_package_root: Path, plan: Plan):
                     print(plan[child_relative_source_path])
 
 
-def debug_print_extracted_plan(plan: Plan):
-    for node in extract_plan(plan, {Action.LINK, Action.UNLINK, Action.CREATE}):
-        click.echo(node)
+def log_extracted_plan(plan: Plan, *, log_level=logging.INFO, key=None, actions_to_extract=None):
+    logger = logging.getLogger()
+    if logger.isEnabledFor(log_level):
+        if key is None:
+            key = lambda node: node
+        if actions_to_extract is None:
+            actions_to_extract = {Action.LINK, Action.UNLINK, Action.CREATE}
+        logger.log(log_level, "---BEGIN PLAN---")
+        for node in extract_plan(plan, actions_to_extract):
+            logger.log(log_level, key(node))
+        logger.log(log_level, "---END PLAN---")
 
 
-def debug_print_extracted_failures(plan: Plan):
-    for node in extract_plan(plan, {Action.FAIL}):
-        click.echo(node)
+def log_extracted_failures(plan: Plan, *, log_level=logging.INFO, key=None):
+    log_extracted_plan(plan, log_level=log_level, key=key, actions_to_extract={Action.FAIL})
 
 
 def execute_plan(source_package_root: Path, destination_root: Path, plan: Plan):
     click.echo(f"Installing from {source_package_root} into {destination_root}:")
-    debug_print_extracted_plan(plan)
+    log_extracted_plan(plan)

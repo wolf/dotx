@@ -1,13 +1,13 @@
+import logging
 import os
 from pathlib import Path
 
-import click
-
 from dotfiles.ignore import should_ignore_this_object
-from dotfiles.plan import Action, PlanNode, Plan, mark_all_parents, mark_immediate_children
+from dotfiles.plan import Action, PlanNode, Plan, extract_plan, log_extracted_plan, mark_all_parents, mark_immediate_children
 
 
 def plan_install_paths(source_package_root: Path, exclude_dirs: list[str] = None) -> Plan:
+    logging.info(f"Planning install paths for source package {source_package_root} excluding {exclude_dirs}")
     plan: Plan = {Path("."): PlanNode(Action.EXISTS, False, Path("."), Path("."), True)}
 
     # For calculating destination path-names, I traverse the file tree top-down
@@ -37,6 +37,8 @@ def plan_install_paths(source_package_root: Path, exclude_dirs: list[str] = None
                 (source_package_root / child_relative_source_path).is_dir(),
             )
 
+    logging.info(f"Install paths planned:")
+    log_extracted_plan(plan, key=lambda node: str(node.relative_source_path)+'->'+str(node.relative_destination_path), actions_to_extract={Action.NONE})
     return plan
 
 

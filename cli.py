@@ -3,7 +3,7 @@ import pathlib
 
 import click
 
-from dotfiles.plan import Action, Plan, debug_print_extracted_plan, execute_plan, extract_plan
+from dotfiles.plan import Action, Plan, log_extracted_plan, execute_plan, extract_plan
 from dotfiles.install import plan_install
 
 
@@ -22,8 +22,7 @@ def cli(ctx, debug, verbose, target, dry_run):
     """Manage a link farm: install and uninstall groups of links from "source packages"."""
     ctx.obj = {"DEBUG": debug, "VERBOSE": verbose, "TARGET": target, "DRYRUN": dry_run}
     logging.basicConfig(
-        format="%(asctime)s:%(levelname)s:%(message)s",
-        level=logging.DEBUG if debug else logging.WARNING
+        format="%(asctime)s:%(levelname)s:%(message)s", level=logging.DEBUG if debug else logging.WARNING
     )
     logging.info(ctx.obj)
 
@@ -45,7 +44,8 @@ def install(ctx, sources):
         for source_package in sources:
             logging.info(f"Planning install of source package: {source_package}")
             plan: Plan = plan_install(source_package, destination_root, [".mypy_cache"])
-            logging.info(f"{extract_plan(plan, {Action.LINK, Action.UNLINK, Action.CREATE})}")
+            logging.info(f"Actual plan:")
+            log_extracted_plan(plan, actions_to_extract={Action.LINK, Action.UNLINK, Action.CREATE})
             plans.append((source_package, plan))
 
         can_install = True
