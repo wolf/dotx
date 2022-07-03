@@ -3,6 +3,7 @@ import pathlib
 
 import click
 
+from dotfiles.options import get_option
 from dotfiles.plan import Action, Plan, log_extracted_plan, execute_plan, extract_plan
 from dotfiles.install import plan_install
 
@@ -37,7 +38,11 @@ def cli(ctx, debug, verbose, target, dry_run):
 def install(ctx, sources):
     """install [source-package...]"""
     logging.info("install starting")
-    destination_root = ctx.obj["TARGET"]
+    destination_root = get_option("TARGET")
+
+    if destination_root is None:
+        click.echo("Error: no target directory")
+        return 1
 
     if sources:
         plans: list[(pathlib.Path, Plan)] = []
