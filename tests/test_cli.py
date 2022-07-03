@@ -1,9 +1,8 @@
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from click.testing import CliRunner
 import pytest
-
+from click.testing import CliRunner
 
 from cli import cli
 

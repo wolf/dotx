@@ -2,8 +2,8 @@ import logging
 import os
 from pathlib import Path
 
-from dotfiles.ignore import should_ignore_this_object
-from dotfiles.plan import Action, PlanNode, Plan, extract_plan, log_extracted_plan, mark_all_parents, mark_immediate_children
+from dotfiles.ignore import prune_ignored_directories, should_ignore_this_object
+from dotfiles.plan import Action, Plan, PlanNode, log_extracted_plan, mark_all_parents, mark_immediate_children
 
 
 def plan_install_paths(source_package_root: Path, exclude_dirs: list[str] = None) -> Plan:
@@ -13,6 +13,7 @@ def plan_install_paths(source_package_root: Path, exclude_dirs: list[str] = None
     # For calculating destination path-names, I traverse the file tree top-down
     for current_root, child_directories, child_files in os.walk(source_package_root):
         current_root_path = Path(current_root)
+        child_directories[:] = prune_ignored_directories(current_root_path, child_directories, exclude_dirs)
         if should_ignore_this_object(current_root_path, exclude_dirs):
             continue
 
@@ -38,7 +39,11 @@ def plan_install_paths(source_package_root: Path, exclude_dirs: list[str] = None
             )
 
     logging.info(f"Install paths planned:")
-    log_extracted_plan(plan, key=lambda node: str(node.relative_source_path)+'->'+str(node.relative_destination_path), actions_to_extract={Action.NONE})
+    log_extracted_plan(
+        plan,
+        key=lambda node: str(node.relative_source_path) + "->" + str(node.relative_destination_path),
+        actions_to_extract={Action.NONE},
+    )
     return plan
 
 

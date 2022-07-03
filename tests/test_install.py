@@ -1,8 +1,8 @@
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from dotfiles.plan import Action, PlanNode, extract_plan
 from dotfiles.install import plan_install
+from dotfiles.plan import Action, PlanNode, extract_plan
 
 
 def test_install_nothing():

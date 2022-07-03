@@ -5,6 +5,8 @@
 - [x] Set up logging
 - [x] Check for leaf files existing, that should throw an exception: this install can't be done without destroying files
 
+- [ ] Add docstrings everywhere
+- [ ] Look at Sphinx (do I require MyST if I want to use Markdown?)
 - [ ] Unit tests that look at deeper functions than just `plan_install`
 - [ ] For testing, is there a better way of creating all these test files and test directories.  I'm fine with how I make the roots
 - [ ] Log everything

@@ -1,7 +1,7 @@
-from dataclasses import dataclass
-from enum import Enum
 import logging
 import os
+from dataclasses import dataclass
+from enum import Enum
 from pathlib import Path
 
 import click
@@ -50,18 +50,6 @@ def extract_plan(plan: Plan, actions: set[Action]) -> list[PlanNode]:
     return [
         node for node in sorted(plan.values(), key=lambda node: node.relative_source_path) if node.action in actions
     ]
-
-
-def debug_print_plan(source_package_root: Path, plan: Plan):
-    for current_root, child_directories, child_files in os.walk(source_package_root):
-        current_root_path = Path(current_root)
-        relative_root_path = current_root_path.relative_to(source_package_root)
-
-        if relative_root_path in plan or relative_root_path == Path("."):
-            for child in child_directories + child_files:
-                child_relative_source_path = relative_root_path / child
-                if child_relative_source_path in plan:
-                    print(plan[child_relative_source_path])
 
 
 def log_extracted_plan(plan: Plan, *, log_level=logging.INFO, key=None, actions_to_extract=None):

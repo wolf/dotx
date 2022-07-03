@@ -8,6 +8,10 @@ def should_ignore_this_object(file_system_object: Path, exclude_dirs: list[str] 
         dir_list = file_system_object.parts
         for exclude_dir in exclude_dirs:
             if exclude_dir in dir_list:
-                logging.info(f"Ignoring {file_system_object} because {exclude_dir}")
+                logging.info(f"Ignoring {file_system_object} because of {exclude_dir}")
                 return True
     return False
+
+
+def prune_ignored_directories(root: Path, directories: list[str], exclude_dirs: list[str]) -> list[str]:
+    return [dirname for dirname in directories if not should_ignore_this_object(root / dirname, exclude_dirs)]

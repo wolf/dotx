@@ -3,28 +3,35 @@ import pathlib
 
 import click
 
-from dotfiles.options import get_option
-from dotfiles.plan import Action, Plan, log_extracted_plan, execute_plan, extract_plan
 from dotfiles.install import plan_install
+from dotfiles.options import get_option
+from dotfiles.plan import Action, Plan, execute_plan, extract_plan, log_extracted_plan
 
 
 @click.group()
 @click.option("--debug/--no-debug", default=False)
 @click.option("--verbose/--quiet", default=False)
 @click.option(
-    "-t",
-    "--target",
-    type=click.Path(exists=True, file_okay=False, dir_okay=True, writable=True, readable=True, path_type=pathlib.Path),
-    help="The directory to install into",
+    "--log",
+    type=click.Path(exists=False, file_okay=True, dir_okay=False, writable=True, readable=True, path_type=pathlib.Path),
+    help="Where to write the log (defaults to stderr)",
 )
-@click.option("--dry-run/--no-dry-run", default=True, help="Print a list of what would be done; don't actually do it.")
+@click.option(
+    "--target",
+    envvar="HOME",
+    type=click.Path(exists=True, file_okay=False, dir_okay=True, writable=True, readable=True, path_type=pathlib.Path),
+    help="Where to install (defaults to $HOME)",
+)
+@click.option("--dry-run/--no-dry-run", default=True, help="Just echo; don't actually (un)install.")
 @click.pass_context
-def cli(ctx, debug, verbose, target, dry_run):
-    """Manage a link farm: install and uninstall groups of links from "source packages"."""
+def cli(ctx, debug, verbose, log, target, dry_run):
+    """Manage a link farm: (un)install groups of links from "source packages"."""
     ctx.obj = {"DEBUG": debug, "VERBOSE": verbose, "TARGET": target, "DRYRUN": dry_run}
-    logging.basicConfig(
-        format="%(asctime)s:%(levelname)s:%(message)s", level=logging.DEBUG if debug else logging.WARNING
-    )
+    log_level = logging.DEBUG if debug else logging.WARNING
+    if log is None:
+        logging.basicConfig(format="%(asctime)s:%(levelname)s:%(message)s", level=log_level)
+    else:
+        logging.basicConfig(filename=log, format="%(asctime)s:%(levelname)s:%(message)s", level=log_level)
     logging.info(ctx.obj)
 
 

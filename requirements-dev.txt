@@ -3,5 +3,6 @@
 black
 coverage
 ipython
+isort
 mypy
 pytest
