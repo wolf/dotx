@@ -56,8 +56,7 @@ def install(ctx, sources):
         for source_package in sources:
             logging.info(f"Planning install of source package: {source_package}")
             plan: Plan = plan_install(source_package, destination_root, [".mypy_cache"])
-            logging.info(f"Actual plan:")
-            log_extracted_plan(plan, actions_to_extract={Action.LINK, Action.UNLINK, Action.CREATE})
+            log_extracted_plan(plan, description="Actual", actions_to_extract={Action.LINK, Action.UNLINK, Action.CREATE})
             plans.append((source_package, plan))
 
         can_install = True
