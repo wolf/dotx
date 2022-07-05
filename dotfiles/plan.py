@@ -30,6 +30,8 @@ from pathlib import Path
 
 import click
 
+from dotfiles.options import is_dry_run
+
 
 class Action(Enum):
     """An `Enum` to describe what is or will happen to a given file-system object in a plan.
@@ -79,10 +81,11 @@ Plan = dict[Path, PlanNode]
 
 
 def execute_plan(source_package_root: Path, destination_root: Path, plan: Plan):
-    # TODO: implement respecting --dry-run, note this function can install _or_ uninstall
     # TODO: write docstring, once this function actually does something
-    click.echo(f"Installing from {source_package_root} into {destination_root}:")
-    log_extracted_plan(plan)
+    if is_dry_run():
+        log_extracted_plan(plan, description=f"(Un)installing from {source_package_root} into {destination_root}")
+    else:
+        logging.critical("execute_plan not implemented")
 
 
 def extract_plan(plan: Plan, actions: set[Action]) -> list[PlanNode]:
@@ -126,18 +129,17 @@ def log_extracted_plan(
         actions_to_extract: as in other functions, a set of `Action`s controlling exactly which `PlanNode`s will be logged
     """
     logger = logging.getLogger()
-    if logger.isEnabledFor(log_level):
-        if key is None:
-            key = lambda node: node
-        if actions_to_extract is None:
-            actions_to_extract = {Action.LINK, Action.UNLINK, Action.CREATE}
-        if description is None:
-            logger.log(log_level, "---BEGIN PLAN---")
-        else:
-            logger.log(log_level, f"---BEGIN PLAN: {description}---")
-        for node in extract_plan(plan, actions_to_extract):
-            logger.log(log_level, key(node))
-        logger.log(log_level, "---END PLAN---")
+    if key is None:
+        key = lambda node: node
+    if actions_to_extract is None:
+        actions_to_extract = {Action.LINK, Action.UNLINK, Action.CREATE}
+    if description is None:
+        logger.log(log_level, "---BEGIN PLAN---")
+    else:
+        logger.log(log_level, f"---BEGIN PLAN: {description}---")
+    for node in extract_plan(plan, actions_to_extract):
+        logger.log(log_level, key(node))
+    logger.log(log_level, "---END PLAN---")
 
 
 def mark_all_parents(leaf: Path, mark: Action, stop_mark: Action, plan: Plan):

@@ -36,13 +36,14 @@ def cli(ctx, debug, verbose, log, target, dry_run):
 
 
 @cli.command()
+@click.option("-i", "--ignore", type=str, multiple=True, help="a path component to exclude from installation")
 @click.argument(
     "sources",
     nargs=-1,
     type=click.Path(exists=True, file_okay=False, dir_okay=True, readable=True, path_type=pathlib.Path),
 )
 @click.pass_context
-def install(ctx, sources):
+def install(ctx, ignore, sources):
     """install [source-package...]"""
     logging.info("install starting")
     destination_root = get_option("TARGET")
@@ -54,9 +55,8 @@ def install(ctx, sources):
     if sources:
         plans: list[(pathlib.Path, Plan)] = []
         for source_package in sources:
-            logging.info(f"Planning install of source package: {source_package}")
-            plan: Plan = plan_install(source_package, destination_root, [".mypy_cache"])
-            log_extracted_plan(plan, description="Actual", actions_to_extract={Action.LINK, Action.UNLINK, Action.CREATE})
+            plan: Plan = plan_install(source_package, destination_root, list(ignore))
+            log_extracted_plan(plan, description=f"Actual plan for {source_package}", actions_to_extract={Action.LINK, Action.UNLINK, Action.CREATE})
             plans.append((source_package, plan))
 
         can_install = True

@@ -2,7 +2,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from dotfiles.install import plan_install
-from dotfiles.plan import Action, PlanNode, extract_plan
+from dotfiles.plan import Action, PlanNode
 
 
 def test_install_nothing():
