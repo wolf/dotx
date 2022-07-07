@@ -36,7 +36,7 @@ def cli(ctx, debug, verbose, log, target, dry_run):
 
 
 @cli.command()
-@click.option("-i", "--ignore", type=str, multiple=True, help="a path component to exclude from installation")
+@click.option("-i", "--ignore", type=str, multiple=True, help="a pattern to exclude from installation")
 @click.argument(
     "sources",
     nargs=-1,

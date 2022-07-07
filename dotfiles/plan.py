@@ -82,10 +82,27 @@ Plan = dict[Path, PlanNode]
 
 def execute_plan(source_package_root: Path, destination_root: Path, plan: Plan):
     # TODO: write docstring, once this function actually does something
+
+    def print_shell_command(node: PlanNode):
+        command = None
+        destination = destination_root / node.relative_destination_path
+        match node.action:
+            case Action.CREATE:
+                command = f"mkdir {destination}"
+            case Action.LINK:
+                command = f"ln -s {source_package_root / node.relative_source_path} {destination}"
+            case Action.UNLINK:
+                command = f"rm {'-rf' if node.is_dir else ''} {destination}"
+        if command is not None:
+            print(command)
+
     if is_dry_run():
-        log_extracted_plan(plan, description=f"(Un)installing from {source_package_root} into {destination_root}")
+        print(f"(Un)installing from {source_package_root} into {destination_root}")
+        node_list = extract_plan(plan, actions={Action.CREATE, Action.LINK, Action.UNLINK})
+        for node in node_list:
+            print_shell_command(node)
     else:
-        logging.critical("execute_plan not implemented")
+        logging.critical("execute_plan when not a dry-run not implemented")
 
 
 def extract_plan(plan: Plan, actions: set[Action]) -> list[PlanNode]:

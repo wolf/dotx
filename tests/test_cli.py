@@ -14,7 +14,10 @@ def test_install_normal_file():
         (source_package_root_path / file_path).touch()
 
         runner = CliRunner()
-        result = runner.invoke(cli, f"--target={destination_root} install {source_package_root}")
+        result = runner.invoke(cli, f"--dry-run install {source_package_root}")
+
+        print()
+        print(result.output)
 
         assert "can't install" not in result.output
 

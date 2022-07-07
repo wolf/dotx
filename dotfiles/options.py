@@ -4,6 +4,16 @@
 import click
 
 
+def set_option(option: str, value) -> bool:
+    ctx = click.get_current_context()
+    if ctx is not None:
+        if ctx.obj is None:
+            ctx.obj = {}
+        ctx.obj[option] = value
+        return True
+    return False
+
+
 def get_option(option: str, default_for_option=None):
     ctx = click.get_current_context()
     if ctx is not None and ctx.obj is not None and option in ctx.obj:
