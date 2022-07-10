@@ -1,4 +1,4 @@
-"""This module provides convenience functions for accessing user-data on the `click.Context` associated with this run."""
+"""This module provides convenience functions for accessing user-data on the associated `click.Context`."""
 
 
 import click
