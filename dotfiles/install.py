@@ -39,6 +39,8 @@ def plan_install(source_package_root: Path, destination_root: Path, excludes: li
         if relative_root_path not in plan:
             continue
 
+        relative_destination_root_path = plan[relative_root_path].relative_destination_path
+
         found_children_to_rename = False
         for child in child_directories + child_files:
             child_relative_source_path = relative_root_path / child
@@ -55,7 +57,7 @@ def plan_install(source_package_root: Path, destination_root: Path, excludes: li
         elif found_children_to_rename:
             plan[relative_root_path].action = Action.CREATE
             mark_all_parents(relative_root_path, mark=Action.CREATE, stop_mark=Action.EXISTS, plan=plan)
-        elif (destination_root / relative_root_path).exists():
+        elif (destination_root / relative_destination_root_path).exists():
             plan[relative_root_path].action = Action.EXISTS
             mark_all_parents(relative_root_path, mark=Action.EXISTS, stop_mark=Action.EXISTS, plan=plan)
         else:
@@ -131,7 +133,7 @@ def plan_install_paths(source_package_root: Path, excludes: list[str] = None) ->
 
     log_extracted_plan(
         plan,
-        description="planned install paths",
+        description="planned (un)install paths",
         key=lambda node: str(node.relative_source_path) + "->" + str(node.relative_destination_path),
         actions_to_extract={Action.NONE},
     )

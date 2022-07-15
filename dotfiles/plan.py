@@ -19,6 +19,7 @@ Exported functions:
     log_extracted_failures
     log_extracted_plan
     mark_all_parents
+    mark_all_children
     mark_immediate_children
 """
 
@@ -81,28 +82,62 @@ Plan = dict[Path, PlanNode]
 
 
 def execute_plan(source_package_root: Path, destination_root: Path, plan: Plan):
-    # TODO: write docstring, once this function actually does something
+    """Create, link, or unlink files and directories as indicated by the supplied `plan`.
 
-    def print_shell_command(node: PlanNode):
+    This function is used to actually make an install or an uninstall happen.  If this is a dry-run,
+    then just print the shell commands it would take to do the install or uninstall.  Otherwise,
+    actually create, link, or unlink actual files using `pathlib` native functions.
+    """
+    def print_shell_command(step: PlanNode):
+        """Print the shell command corresponding to exactly one `PlanNode`"""
         command = None
-        destination = destination_root / node.relative_destination_path
-        match node.action:
+        destination = (destination_root / step.relative_destination_path)
+        source = (source_package_root / step.relative_source_path).resolve()
+        try:
+            source = source.relative_to(destination.parent)
+        except ValueError:
+            pass
+
+        match step.action:
             case Action.CREATE:
                 command = f"mkdir {destination}"
             case Action.LINK:
-                command = f"ln -s {source_package_root / node.relative_source_path} {destination}"
+                command = f"ln -s {source} {destination}"
+            case Action.UNLINK if destination.is_symlink():
+                command = f"rm {destination}"
             case Action.UNLINK:
-                command = f"rm {'-rf' if node.is_dir else ''} {destination}"
+                command = f"rm {'-rf ' if step.is_dir else ''}{destination}"
         if command is not None:
             print(command)
 
+    def execute_plan_step(step: PlanNode):
+        """Make the change specified by a single `PlanNode` happen using `pathlib` functions"""
+        destination = (destination_root / step.relative_destination_path)
+        source = (source_package_root / step.relative_source_path).resolve()
+        try:
+            source = source.relative_to(destination.parent)
+        except ValueError:
+            pass
+
+        match step.action:
+            case Action.CREATE:
+                destination.mkdir()
+            case Action.LINK:
+                destination.symlink_to(source, step.is_dir)
+            case Action.UNLINK if destination.is_symlink():
+                destination.unlink()
+            case _:
+                logging.critical(f"Bad step: {step}")
+                exit(2)
+
+    steps = extract_plan(plan, actions={Action.CREATE, Action.LINK, Action.UNLINK})
     if is_dry_run():
         print(f"(Un)installing from {source_package_root} into {destination_root}")
-        node_list = extract_plan(plan, actions={Action.CREATE, Action.LINK, Action.UNLINK})
-        for node in node_list:
-            print_shell_command(node)
+        for step in steps:
+            print_shell_command(step)
     else:
-        logging.critical("execute_plan when not a dry-run not implemented")
+        for step in steps:
+            execute_plan_step(step)
 
 
 def extract_plan(plan: Plan, actions: set[Action]) -> list[PlanNode]:
@@ -173,6 +208,30 @@ def mark_all_parents(leaf: Path, mark: Action, stop_mark: Action, plan: Plan):
             if plan[parent].action == stop_mark:
                 break
             plan[parent].action = mark
+
+
+def mark_all_children(
+        source_package_root: Path, parent: Path, mark: Action, plan: Plan, allow_overwrite: set[Action]
+):
+    """Mark every descendent of `parent` with the given `Action`, both files and directories.
+
+    `allow_overwrite` is key, here.  For instance, `PlanNode`s start with an `action` of `Action.NONE`. If you were
+    marking the children with `Action.LINK`, you'd want to be allowed to overwrite those whose `action` was still
+    `Action.NONE`.
+
+    Takes four arguments:
+        source_package_root:    a `pathlib.Path` needed to build paths to key into the `Plan`
+        parent:                 the `pathlib.Path` to a directory whose children you wish to mark
+        mark:                   the `Action` with which to mark the children
+        allow_overwrite:        ...but only if they are currently marked with an `Action` from this set
+    """
+    this_directory = source_package_root / parent
+    for child in this_directory.iterdir():
+        child_relative_path = child.relative_to(source_package_root)
+        if child_relative_path in plan and plan[child_relative_path].action in allow_overwrite:
+            plan[child_relative_path].action = mark
+        if child.is_dir():
+            mark_all_children(source_package_root, child, mark, plan, allow_overwrite)
 
 
 def mark_immediate_children(

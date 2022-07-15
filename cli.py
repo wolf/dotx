@@ -4,6 +4,7 @@ import pathlib
 import click
 
 from dotfiles.install import plan_install
+from dotfiles.uninstall import plan_uninstall
 from dotfiles.options import get_option
 from dotfiles.plan import Action, Plan, execute_plan, extract_plan, log_extracted_plan
 
@@ -23,10 +24,25 @@ from dotfiles.plan import Action, Plan, execute_plan, extract_plan, log_extracte
     help="Where to install (defaults to $HOME)",
 )
 @click.option("--dry-run/--no-dry-run", default=True, help="Just echo; don't actually (un)install.")
+@click.option("-i", "--ignore", type=str, multiple=True, help="a pattern to exclude from installation")
 @click.pass_context
-def cli(ctx, debug, verbose, log, target, dry_run):
+def cli(
+        ctx: click.Context,
+        debug: bool,
+        verbose: bool,
+        log: pathlib.Path,
+        target: pathlib.Path,
+        dry_run: bool,
+        ignore: list[str]
+):
     """Manage a link farm: (un)install groups of links from "source packages"."""
-    ctx.obj = {"DEBUG": debug, "VERBOSE": verbose, "TARGET": target, "DRYRUN": dry_run}
+    ctx.obj = {
+        "DEBUG": debug,
+        "VERBOSE": verbose,
+        "TARGET": target,
+        "DRYRUN": dry_run,
+        "IGNORE": list(ignore)
+    }
     log_level = logging.DEBUG if debug else logging.WARNING
     if log is None:
         logging.basicConfig(format="%(asctime)s:%(levelname)s:%(message)s", level=log_level)
@@ -36,27 +52,22 @@ def cli(ctx, debug, verbose, log, target, dry_run):
 
 
 @cli.command()
-@click.option("-i", "--ignore", type=str, multiple=True, help="a pattern to exclude from installation")
 @click.argument(
     "sources",
     nargs=-1,
     type=click.Path(exists=True, file_okay=False, dir_okay=True, readable=True, path_type=pathlib.Path),
 )
 @click.pass_context
-def install(ctx, ignore, sources):
+def install(ctx, sources):
     """install [source-package...]"""
     logging.info("install starting")
     destination_root = get_option("TARGET")
 
-    if destination_root is None:
-        click.echo("Error: no target directory")
-        return 1
-
     if sources:
         plans: list[(pathlib.Path, Plan)] = []
         for source_package in sources:
-            plan: Plan = plan_install(source_package, destination_root, list(ignore))
-            log_extracted_plan(plan, description=f"Actual plan for {source_package}", actions_to_extract={Action.LINK, Action.UNLINK, Action.CREATE})
+            plan: Plan = plan_install(source_package, destination_root, get_option("IGNORE"))
+            log_extracted_plan(plan, description=f"Actual plan to install {source_package}", actions_to_extract={Action.LINK, Action.CREATE})
             plans.append((source_package, plan))
 
         can_install = True
@@ -86,10 +97,19 @@ def install(ctx, ignore, sources):
 @click.pass_context
 def uninstall(ctx, sources):
     """uninstall [source-package...]"""
+    logging.info("uninstall starting")
+    destination_root = get_option("TARGET")
+
     if sources:
-        click.echo("To be uninstalled:")
-        for path in sources:
-            click.echo(f"\t{str(path)}")
+        plans: list[(pathlib.Path, Plan)] = []
+        for source_package in sources:
+            plan: Plan = plan_uninstall(source_package, destination_root, get_option("IGNORE"))
+            log_extracted_plan(plan, description=f"Actual plan to uninstall {source_package}", actions_to_extract={Action.UNLINK})
+            plans.append((source_package, plan))
+
+        for source_package, plan in plans:
+            execute_plan(source_package, destination_root, plan)
+    logging.info("uninstall finished")
 
 
 @cli.command()

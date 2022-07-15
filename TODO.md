@@ -11,17 +11,19 @@
 - [x] Try picologging.  Nope: for some reason, picologging doesn't work at all.  Fails with an internal error.  Try again when it has matured a little.
 - [x] Implement globbing in the ignore code
 - [x] Make dry-run for install spit out the commands that could be used to do it, without actually doing it
+- [x] Figure out why .config/bat/config doesn't install correctly
+- [x] Uninstall (feels like I can't do this with perfect fidelity)
+  - [-] Can I delete empty directories I _might_ have created during installation?
+- [x] Test `execute_plan` in dry-run mode to see the commands: are they right
 
-- [ ] Test `execute_plan` in dry-run mode to see the commands: are they right
+- [ ] What else goes in pyproject.toml?
+- [ ] How best to _exit_ the program
 - [ ] Unit tests that look at deeper functions than just `plan_install`
 - [ ] Log everything
 - [ ] Add VERBOSE and DEBUG output
-- [ ] Uninstall (feels like I can't do this with perfect fidelity)
-  - [ ] Can I delete empty directories I _might_ have created during installation?
-- [ ] What else goes in pyproject.toml?
-- [ ] How best to _exit_ the program
 
 - [ ] For testing, is there a better way of creating all these test files and test directories.  I'm fine with how I make the roots
 - [ ] Look at Sphinx (do I require MyST if I want to use Markdown?)
 - [ ] Think about the ignore system: ignore files, cached regexes, what else can be done?
+- [ ] Figure out (maybe) how to make shorter relative paths to deeper install links
 - 
