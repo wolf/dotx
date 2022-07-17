@@ -8,11 +8,10 @@ Exported functions:
 """
 
 
-import logging
 import os
 from pathlib import Path
 
-from dotfiles.plan import Action, Plan, PlanNode, log_extracted_plan, mark_all_children
+from dotfiles.plan import Action, Plan, mark_all_descendents
 from dotfiles.install import plan_install_paths
 
 
@@ -38,7 +37,7 @@ def plan_uninstall(source_package_root: Path, destination_root: Path, excludes: 
         if destination_path.is_symlink():
             plan[relative_root_path].action = Action.UNLINK
             if destination_path.is_dir():
-                mark_all_children(source_package_root, relative_root_path, Action.SKIP, plan, {Action.NONE})
+                mark_all_descendents(relative_root_path, Action.SKIP, {Action.NONE}, source_package_root, plan)
 
     del plan[Path(".")]
     return plan

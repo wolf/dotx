@@ -18,8 +18,8 @@ Exported functions:
     extract_plan
     log_extracted_failures
     log_extracted_plan
-    mark_all_parents
-    mark_all_children
+    mark_all_ancestors
+    mark_all_descendents
     mark_immediate_children
 """
 
@@ -28,8 +28,6 @@ import logging
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-
-import click
 
 from dotfiles.options import is_dry_run
 
@@ -41,11 +39,12 @@ class Action(Enum):
         FAIL:   a file that already exists in the destination cannot be replaced, the install fails
         NONE:   an empty initial value for a `PlanNode`
         SKIP:   an object whose parent (somewhere along the chain) is linked needs no further work done
-        LINK:   an file or directory that should be installed with a direct symlink
+        LINK:   a file or directory that should be installed with a direct symlink
         UNLINK: the object exists at the destination and the plan is to remove it
         CREATE: a directory that cannot be linked must be created
         EXISTS: a directory that already exists in the destination
     """
+
     FAIL = "fail"
     NONE = "none"
     SKIP = "skip"
@@ -71,6 +70,7 @@ class PlanNode:
                                     location root
         is_dir:                     `True` when this file-system object is a directory
     """
+
     action: Action
     requires_rename: bool
     relative_source_path: Path
@@ -88,10 +88,11 @@ def execute_plan(source_package_root: Path, destination_root: Path, plan: Plan):
     then just print the shell commands it would take to do the install or uninstall.  Otherwise,
     actually create, link, or unlink actual files using `pathlib` native functions.
     """
-    def print_shell_command(step: PlanNode):
+
+    def build_shell_command(step: PlanNode):
         """Print the shell command corresponding to exactly one `PlanNode`"""
         command = None
-        destination = (destination_root / step.relative_destination_path)
+        destination = destination_root / step.relative_destination_path
         source = (source_package_root / step.relative_source_path).resolve()
         try:
             source = source.relative_to(destination.parent)
@@ -107,12 +108,11 @@ def execute_plan(source_package_root: Path, destination_root: Path, plan: Plan):
                 command = f"rm {destination}"
             case Action.UNLINK:
                 command = f"rm {'-rf ' if step.is_dir else ''}{destination}"
-        if command is not None:
-            print(command)
+        return command
 
     def execute_plan_step(step: PlanNode):
         """Make the change specified by a single `PlanNode` happen using `pathlib` functions"""
-        destination = (destination_root / step.relative_destination_path)
+        destination = destination_root / step.relative_destination_path
         source = (source_package_root / step.relative_source_path).resolve()
         try:
             source = source.relative_to(destination.parent)
@@ -132,11 +132,16 @@ def execute_plan(source_package_root: Path, destination_root: Path, plan: Plan):
 
     steps = extract_plan(plan, actions={Action.CREATE, Action.LINK, Action.UNLINK})
     if is_dry_run():
-        print(f"(Un)installing from {source_package_root} into {destination_root}")
         for step in steps:
-            print_shell_command(step)
+            command = build_shell_command(step)
+            if command is not None:
+                logging.info(command)
+                print(command)
     else:
         for step in steps:
+            command = build_shell_command(step)
+            if command is not None:
+                logging.info(command)
             execute_plan_step(step)
 
 
@@ -194,7 +199,7 @@ def log_extracted_plan(
     logger.log(log_level, "---END PLAN---")
 
 
-def mark_all_parents(leaf: Path, mark: Action, stop_mark: Action, plan: Plan):
+def mark_all_ancestors(child: Path, mark: Action, stop_mark: Action, plan: Plan):
     """Mark each parent of `leaf` up the chain with the given `Action` until you hit one whose `action` is `stop_mark`.
 
     Takes four arguments:
@@ -203,15 +208,15 @@ def mark_all_parents(leaf: Path, mark: Action, stop_mark: Action, plan: Plan):
         stop_mark:  the `Action` that will stop the climb.  Typically `Action.EXISTS`
         plan:       the `Plan` in which this all takes place
     """
-    for parent in leaf.parents:
+    for parent in child.parents:
         if parent in plan:
             if plan[parent].action == stop_mark:
                 break
             plan[parent].action = mark
 
 
-def mark_all_children(
-        source_package_root: Path, parent: Path, mark: Action, plan: Plan, allow_overwrite: set[Action]
+def mark_all_descendents(
+    parent: Path, mark: Action, allow_overwrite: set[Action], source_package_root: Path, plan: Plan
 ):
     """Mark every descendent of `parent` with the given `Action`, both files and directories.
 
@@ -221,7 +226,7 @@ def mark_all_children(
 
     Takes four arguments:
         source_package_root:    a `pathlib.Path` needed to build paths to key into the `Plan`
-        parent:                 the `pathlib.Path` to a directory whose children you wish to mark
+        parent:                 the `pathlib.Path` to a directory whose descendents you wish to mark
         mark:                   the `Action` with which to mark the children
         allow_overwrite:        ...but only if they are currently marked with an `Action` from this set
     """
@@ -231,11 +236,11 @@ def mark_all_children(
         if child_relative_path in plan and plan[child_relative_path].action in allow_overwrite:
             plan[child_relative_path].action = mark
         if child.is_dir():
-            mark_all_children(source_package_root, child, mark, plan, allow_overwrite)
+            mark_all_descendents(child_relative_path, mark, allow_overwrite, source_package_root, plan)
 
 
 def mark_immediate_children(
-    source_package_root: Path, parent: Path, mark: Action, plan: Plan, allow_overwrite: set[Action]
+    parent: Path, mark: Action, allow_overwrite: set[Action], source_package_root: Path, plan: Plan
 ):
     """Mark each child of `parent` with the given `Action`, both files and directories.
 

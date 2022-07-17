@@ -1,5 +1,6 @@
 import logging
 import pathlib
+from typing import Tuple
 
 import click
 
@@ -23,26 +24,22 @@ from dotfiles.plan import Action, Plan, execute_plan, extract_plan, log_extracte
     type=click.Path(exists=True, file_okay=False, dir_okay=True, writable=True, readable=True, path_type=pathlib.Path),
     help="Where to install (defaults to $HOME)",
 )
-@click.option("--dry-run/--no-dry-run", default=True, help="Just echo; don't actually (un)install.")
+@click.option("--dry-run/--no-dry-run", default=False, help="Just echo; don't actually (un)install.")
 @click.option("-i", "--ignore", type=str, multiple=True, help="a pattern to exclude from installation")
 @click.pass_context
 def cli(
-        ctx: click.Context,
-        debug: bool,
-        verbose: bool,
-        log: pathlib.Path,
-        target: pathlib.Path,
-        dry_run: bool,
-        ignore: list[str]
+    ctx: click.Context,
+    debug: bool,
+    verbose: bool,
+    log: pathlib.Path,
+    target: pathlib.Path,
+    dry_run: bool,
+    ignore: Tuple[str, ...],
 ):
     """Manage a link farm: (un)install groups of links from "source packages"."""
-    ctx.obj = {
-        "DEBUG": debug,
-        "VERBOSE": verbose,
-        "TARGET": target,
-        "DRYRUN": dry_run,
-        "IGNORE": list(ignore)
-    }
+    if ignore is not None:
+        ignore = list(ignore)
+    ctx.obj = {"DEBUG": debug, "VERBOSE": verbose, "TARGET": target, "DRYRUN": dry_run, "IGNORE": ignore}
     log_level = logging.DEBUG if debug else logging.WARNING
     if log is None:
         logging.basicConfig(format="%(asctime)s:%(levelname)s:%(message)s", level=log_level)
@@ -67,7 +64,11 @@ def install(ctx, sources):
         plans: list[(pathlib.Path, Plan)] = []
         for source_package in sources:
             plan: Plan = plan_install(source_package, destination_root, get_option("IGNORE"))
-            log_extracted_plan(plan, description=f"Actual plan to install {source_package}", actions_to_extract={Action.LINK, Action.CREATE})
+            log_extracted_plan(
+                plan,
+                description=f"Actual plan to install {source_package}",
+                actions_to_extract={Action.LINK, Action.CREATE},
+            )
             plans.append((source_package, plan))
 
         can_install = True
@@ -104,7 +105,9 @@ def uninstall(ctx, sources):
         plans: list[(pathlib.Path, Plan)] = []
         for source_package in sources:
             plan: Plan = plan_uninstall(source_package, destination_root, get_option("IGNORE"))
-            log_extracted_plan(plan, description=f"Actual plan to uninstall {source_package}", actions_to_extract={Action.UNLINK})
+            log_extracted_plan(
+                plan, description=f"Actual plan to uninstall {source_package}", actions_to_extract={Action.UNLINK}
+            )
             plans.append((source_package, plan))
 
         for source_package, plan in plans:

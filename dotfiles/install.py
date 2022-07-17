@@ -14,7 +14,7 @@ import os
 from pathlib import Path
 
 from dotfiles.ignore import prune_ignored_directories, should_ignore_this_object
-from dotfiles.plan import Action, Plan, PlanNode, log_extracted_plan, mark_all_parents, mark_immediate_children
+from dotfiles.plan import Action, Plan, PlanNode, log_extracted_plan, mark_all_ancestors, mark_immediate_children
 
 
 def plan_install(source_package_root: Path, destination_root: Path, excludes: list[str] = None) -> Plan:
@@ -56,24 +56,28 @@ def plan_install(source_package_root: Path, destination_root: Path, excludes: li
             plan[relative_root_path].action = Action.EXISTS
         elif found_children_to_rename:
             plan[relative_root_path].action = Action.CREATE
-            mark_all_parents(relative_root_path, mark=Action.CREATE, stop_mark=Action.EXISTS, plan=plan)
+            mark_all_ancestors(relative_root_path, mark=Action.CREATE, stop_mark=Action.EXISTS, plan=plan)
         elif (destination_root / relative_destination_root_path).exists():
             plan[relative_root_path].action = Action.EXISTS
-            mark_all_parents(relative_root_path, mark=Action.EXISTS, stop_mark=Action.EXISTS, plan=plan)
+            mark_all_ancestors(relative_root_path, mark=Action.EXISTS, stop_mark=Action.EXISTS, plan=plan)
         else:
             plan[relative_root_path].action = Action.LINK
 
         if plan[relative_root_path].action in {Action.CREATE, Action.EXISTS}:
             mark_immediate_children(
-                source_package_root, relative_root_path, mark=Action.LINK, plan=plan, allow_overwrite={Action.NONE}
+                relative_root_path,
+                mark=Action.LINK,
+                allow_overwrite={Action.NONE},
+                source_package_root=source_package_root,
+                plan=plan,
             )
         elif plan[relative_root_path].action == Action.LINK:
             mark_immediate_children(
-                source_package_root,
                 relative_root_path,
                 mark=Action.SKIP,
-                plan=plan,
                 allow_overwrite={Action.NONE, Action.LINK},
+                source_package_root=source_package_root,
+                plan=plan,
             )
 
     del plan[Path(".")]
