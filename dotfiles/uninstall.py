@@ -32,11 +32,16 @@ def plan_uninstall(source_package_root: Path, destination_root: Path, excludes: 
             if destination_path.is_symlink():
                 plan[child_relative_source_path].action = Action.UNLINK
 
-        relative_destination_root_path = plan[relative_root_path].relative_destination_path
-        destination_path = destination_root / relative_destination_root_path
-        if destination_path.is_symlink():
-            plan[relative_root_path].action = Action.UNLINK
-            if destination_path.is_dir():
+        destination_path = destination_root / plan[relative_root_path].relative_destination_path
+        action = None
+        if not destination_path.exists():
+            action = Action.SKIP
+        elif destination_path.is_symlink():
+            action = Action.UNLINK
+
+        if action is not None:
+            plan[relative_root_path].action = action
+            if (source_package_root / plan[relative_root_path].relative_source_path).is_dir():
                 mark_all_descendents(relative_root_path, Action.SKIP, {Action.NONE}, source_package_root, plan)
 
     del plan[Path(".")]

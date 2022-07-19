@@ -15,6 +15,14 @@
 - [x] Uninstall (feels like I can't do this with perfect fidelity)
   - [-] Can I delete empty directories I _might_ have created during installation?
 - [x] Test `execute_plan` in dry-run mode to see the commands: are they right
+- [x] Do the PyPI installation tutorial
+
+- [ ] Rearrange project as per PyPI demo project
+  - [ ] Rename project to `dotx`
+  - [ ] Rebuild venv
+  - [ ] Re-install (editable) in the local venv
+- [ ] Switch build back-end to `hatch`
+- [ ] Upload to PyPI
 
 - [ ] What else goes in pyproject.toml?
 - [ ] How best to _exit_ the program
