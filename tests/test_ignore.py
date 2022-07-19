@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from dotfiles.ignore import should_ignore_this_object, prune_ignored_directories
+from dotx.ignore import should_ignore_this_object, prune_ignored_directories
 
 
 def test_should_ignore_end_component():

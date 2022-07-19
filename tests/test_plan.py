@@ -1,8 +1,8 @@
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from dotfiles.install import plan_install
-from dotfiles.plan import Action, extract_plan
+from dotx.install import plan_install
+from dotx.plan import Action, extract_plan
 
 
 def test_extract_dir_inside_dir_failures():

@@ -4,10 +4,10 @@ from typing import Tuple
 
 import click
 
-from dotfiles.install import plan_install
-from dotfiles.uninstall import plan_uninstall
-from dotfiles.options import get_option
-from dotfiles.plan import Action, Plan, execute_plan, extract_plan, log_extracted_plan
+from dotx.install import plan_install
+from dotx.uninstall import plan_uninstall
+from dotx.options import get_option
+from dotx.plan import Action, Plan, execute_plan, extract_plan, log_extracted_plan
 
 
 @click.group()
@@ -119,7 +119,7 @@ def uninstall(ctx, sources):
 @click.pass_context
 def debug(ctx):
     """Test some things that require a click.Context"""
-    import dotfiles.options
+    import dotx.options
 
     should_be_debug = False
     should_be_verbose = False
@@ -129,9 +129,9 @@ def debug(ctx):
         should_be_verbose = "VERBOSE" in ctx.obj and ctx.obj["VERBOSE"]
         should_be_dry_run = "DRYRUN" in ctx.obj and ctx.obj["DRYRUN"]
 
-    is_debug = dotfiles.options.is_debug_mode()
-    is_verbose = dotfiles.options.is_verbose_mode()
-    is_dry_run = dotfiles.options.is_dry_run()
+    is_debug = dotx.options.is_debug_mode()
+    is_verbose = dotx.options.is_verbose_mode()
+    is_dry_run = dotx.options.is_dry_run()
 
     if is_debug != should_be_debug:
         click.echo(f"Should be debug is {should_be_debug}, but debugging is actually {is_debug}")

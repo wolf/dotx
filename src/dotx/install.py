@@ -1,7 +1,7 @@
 """This module provides the tools to plan an install
 
-Builds a `dotfiles.plan.Plan` designed to install (mostly by linking) the files present in the source package root
-into the destination root.  That plan can then be executed by `dotfiles.plan.execute_plan`.
+Builds a `dotx.plan.Plan` designed to install (mostly by linking) the files present in the source package root
+into the destination root.  That plan can then be executed by `dotx.plan.execute_plan`.
 
 Exported functions:
     plan_install
@@ -13,8 +13,8 @@ import logging
 import os
 from pathlib import Path
 
-from dotfiles.ignore import prune_ignored_directories, should_ignore_this_object
-from dotfiles.plan import Action, Plan, PlanNode, log_extracted_plan, mark_all_ancestors, mark_immediate_children
+from dotx.ignore import prune_ignored_directories, should_ignore_this_object
+from dotx.plan import Action, Plan, PlanNode, log_extracted_plan, mark_all_ancestors, mark_immediate_children
 
 
 def plan_install(source_package_root: Path, destination_root: Path, excludes: list[str] = None) -> Plan:

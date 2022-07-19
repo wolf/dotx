@@ -29,7 +29,7 @@ from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
 
-from dotfiles.options import is_dry_run
+from dotx.options import is_dry_run
 
 
 class Action(Enum):

@@ -1,7 +1,7 @@
 """This module provides the tools to plan an uninstall
 
-Builds a `dotfiles.plan.Plan` designed to uninstall (mostly by unlinking) the files present in the destination root
-that link into the source package.  That plan can then be executed by `dotfiles.plan.execute_plan`.
+Builds a `dotx.plan.Plan` designed to uninstall (mostly by unlinking) the files present in the destination root
+that link into the source package.  That plan can then be executed by `dotx.plan.execute_plan`.
 
 Exported functions:
     plan_uninstall
@@ -11,8 +11,8 @@ Exported functions:
 import os
 from pathlib import Path
 
-from dotfiles.plan import Action, Plan, mark_all_descendents
-from dotfiles.install import plan_install_paths
+from dotx.plan import Action, Plan, mark_all_descendents
+from dotx.install import plan_install_paths
 
 
 def plan_uninstall(source_package_root: Path, destination_root: Path, excludes: list[str] = None) -> Plan:
