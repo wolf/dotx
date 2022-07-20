@@ -1,6 +1,22 @@
 [project]
 name = "dotx"
 version = "0.0.1"
+authors = [
+    { name="Wolf", email="wolf@zv.cx" },
+]
+description = "A command-line tool to install a link-farm to your dotfiles"
+readme = "README.md"
+license = { file="LICENSE" }
+requires-python = ">=3.10"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/wolf/dotx"
+"Bug Tracker" = "https://github.com/wolf/dotx/issues"
 
 [build-system]
 requires = ["hatch"]
