@@ -4,7 +4,7 @@ from tempfile import TemporaryDirectory
 import pytest
 from click.testing import CliRunner
 
-from cli import cli
+from dotx.cli import cli
 
 
 def test_install_normal_file():

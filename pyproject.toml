@@ -1,6 +1,6 @@
 [project]
 name = "dotx"
-version = "0.0.1"
+version = "0.1.0"
 authors = [
     { name="Wolf", email="wolf@zv.cx" },
 ]
@@ -12,6 +12,23 @@ classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+
+]
+dependencies = [
+    "click",
+]
+
+[project.optional-dependencies]
+dev = [
+    "black",
+    "coverage",
+    "ipython",
+    "isort",
+    "mypy",
+    "pytest",
 ]
 
 [project.urls]
@@ -23,7 +40,7 @@ requires = ["hatch"]
 build-backend = "hatchling.build"
 
 [project.scripts]
-dotx = "cli:cli"
+dotx = "dotx.cli:cli"
 
 [tool.black]
 line-length = 120

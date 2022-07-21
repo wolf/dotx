@@ -16,15 +16,14 @@
   - [-] Can I delete empty directories I _might_ have created during installation?
 - [x] Test `execute_plan` in dry-run mode to see the commands: are they right
 - [x] Do the PyPI installation tutorial
+- [x] Rearrange project as per PyPI demo project
+  - [x] Rename project to `dotx`
+  - [x] Rebuild venv
+  - [x] Re-install (editable) in the local venv
+- [x] Switch build back-end to `hatch`
+- [x] Upload to PyPI
+- [x] What else goes in pyproject.toml?
 
-- [ ] Rearrange project as per PyPI demo project
-  - [ ] Rename project to `dotx`
-  - [ ] Rebuild venv
-  - [ ] Re-install (editable) in the local venv
-- [ ] Switch build back-end to `hatch`
-- [ ] Upload to PyPI
-
-- [ ] What else goes in pyproject.toml?
 - [ ] How best to _exit_ the program
 - [ ] Unit tests that look at deeper functions than just `plan_install`
 - [ ] Log everything

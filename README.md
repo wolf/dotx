@@ -1,5 +1,12 @@
 ## The Basic Idea
 
+### What `dotx` does; what it's _for_
+#### The problem
+#### A solution
+### The user interface
+### How it works
+### What's next
+
 High-level: we're going to fill in a data-structure that maps file-paths to actions/states where the actions/states
 are: "create", "link", "skip", "exists".  "exists" means the named source directory already exists in the
 destination, and therefore does not need to be linked.  If "exists" applied to a file, it should cancel the whole

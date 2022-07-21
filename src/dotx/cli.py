@@ -113,29 +113,3 @@ def uninstall(ctx, sources):
         for source_package, plan in plans:
             execute_plan(source_package, destination_root, plan)
     logging.info("uninstall finished")
-
-
-@cli.command()
-@click.pass_context
-def debug(ctx):
-    """Test some things that require a click.Context"""
-    import dotx.options
-
-    should_be_debug = False
-    should_be_verbose = False
-    should_be_dry_run = False
-    if ctx is not None and ctx.obj is not None:
-        should_be_debug = "DEBUG" in ctx.obj and ctx.obj["DEBUG"]
-        should_be_verbose = "VERBOSE" in ctx.obj and ctx.obj["VERBOSE"]
-        should_be_dry_run = "DRYRUN" in ctx.obj and ctx.obj["DRYRUN"]
-
-    is_debug = dotx.options.is_debug_mode()
-    is_verbose = dotx.options.is_verbose_mode()
-    is_dry_run = dotx.options.is_dry_run()
-
-    if is_debug != should_be_debug:
-        click.echo(f"Should be debug is {should_be_debug}, but debugging is actually {is_debug}")
-    if is_verbose != should_be_verbose:
-        click.echo(f"Should be verbose is {should_be_verbose}, but debugging is actually {is_verbose}")
-    if is_dry_run != should_be_dry_run:
-        click.echo(f"Should be dry-run is {should_be_dry_run}, but debugging is actually {is_dry_run}")
