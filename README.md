@@ -25,7 +25,8 @@ Unfortunately, GNU `stow` has a bug that its renaming feature doesn't work on di
 purpose tool.  It's made for installing a link-farm to any kind of package from anywhere to anywhere.
 
 `dotx` is a simple tool with a simple goal: manage a link-farm of possibly renamed links to dotfiles.  Yes, you can use
-it for other purposes, but it's tuned for its goal.
+it for other purposes, but it's tuned for its goal.  It does the renaming task if you want it, but if your source files
+are named simply `.bashrc` it works just as well.
 
 ### The user interface
 ```
@@ -49,11 +50,47 @@ Commands:
 So if you had a source package (a directory containing files) named `"bash"` containing `"dot-bashrc"` and
 `"dot-bash_profile"` you could install links to those two files (named `".bashrc"` and `".bash_profile"`) into your
 `${HOME}` directory by being in the parent of the source package and saying:
+```bash
++$ pwd
+/Users/wolf/builds/dotfiles
+
++$ ls -1
+bash
+tmux
+vim
+
++$ tree -aL 1 bash
+bash
+├── README.md
+├── dot-bash_profile
+├── dot-bash_tools.bin
+├── dot-bash_topics.d
+└── dot-bashrc
+
+
++$ dotx --ignore=README.* install bash
+
++$ ls -al ~
+...
+lrwxr--r--    37 wolf 19 Jul 11:01 .bash_profile -> builds/dotfiles/bash/dot-bash_profile
+lrwxr--r--    39 wolf 19 Jul 11:01 .bash_tools.bin -> builds/dotfiles/bash/dot-bash_tools.bin/
+lrwxr--r--    38 wolf 19 Jul 11:01 .bash_topics.d -> builds/dotfiles/bash/dot-bash_topics.d/
+lrwxr--r--    31 wolf 19 Jul 11:01 .bashrc -> builds/dotfiles/bash/dot-bashrc
+...
 ```
-dotx install bash
+If you've got some files in your source package that don't need to be linked, you can use the `--ignore` option (even
+multiple times), like so:
+```bash
+dotx --ignore=README.* --ignore=.mypy_cache install bash tmux vim
+```
+You typically don't need the `--ignore` options during uninstall, which looks almost just like install:
+```bash
+dotx uninstall bash vim tmux
 ```
 ### How it works
 
 
 
 ### What's next
+* ignore files that collect together patterns, a la `.gitignore` and the like
+* ...

@@ -2,6 +2,7 @@
 *.log
 .DS_Store
 .*.sw?
+.python-version
 *.egg-info/
 __pycache__/
 .mypy_cache/
