@@ -33,4 +33,6 @@
 - [ ] Look at Sphinx (do I require MyST if I want to use Markdown?)
 - [ ] Think about the ignore system: ignore files, cached regexes, what else can be done?
 - [ ] Figure out (maybe) how to make shorter relative paths to deeper install links
-- 
+
+- [ ] Things I learned: it's not really good at denying everything after failing at one thing
+- [ ] It's a little finicky at the moment.  Figure out _why_.
