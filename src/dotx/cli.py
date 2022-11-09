@@ -34,12 +34,13 @@ def cli(
     log: pathlib.Path,
     target: pathlib.Path,
     dry_run: bool,
-    ignore: Tuple[str, ...],
+    ignore: Tuple[str, ...]|None,
 ):
     """Manage a link farm: (un)install groups of links from "source packages"."""
+    ignore_list: list[str]|None = None
     if ignore is not None:
-        ignore = list(ignore)
-    ctx.obj = {"DEBUG": debug, "VERBOSE": verbose, "TARGET": target, "DRYRUN": dry_run, "IGNORE": ignore}
+        ignore_list = list(ignore)
+    ctx.obj = {"DEBUG": debug, "VERBOSE": verbose, "TARGET": target, "DRYRUN": dry_run, "IGNORE": ignore_list}
     log_level = logging.DEBUG if debug else logging.WARNING
     if log is None:
         logging.basicConfig(format="%(asctime)s:%(levelname)s:%(message)s", level=log_level)

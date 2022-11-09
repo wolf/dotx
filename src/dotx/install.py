@@ -17,7 +17,7 @@ from dotx.ignore import prune_ignored_directories, should_ignore_this_object
 from dotx.plan import Action, Plan, PlanNode, log_extracted_plan, mark_all_ancestors, mark_immediate_children
 
 
-def plan_install(source_package_root: Path, destination_root: Path, excludes: list[str] = None) -> Plan:
+def plan_install(source_package_root: Path, destination_root: Path, excludes: list[str]|None = None) -> Plan:
     """Create a plan to install the contents of `source_package_root` into `destination_root` ignoring `excludes`.
 
     The algorithm is to traverse, with a bottom-up call to `os.walk`, the source package, determining which paths
@@ -84,7 +84,7 @@ def plan_install(source_package_root: Path, destination_root: Path, excludes: li
     return plan
 
 
-def plan_install_paths(source_package_root: Path, excludes: list[str] = None) -> Plan:
+def plan_install_paths(source_package_root: Path, excludes: list[str]|None = None) -> Plan:
     """Construct an initial `Plan` that contains only the affected paths.
 
     The algorithm is to traverse, with a top-down call to `os.walk`, the file-system objects within

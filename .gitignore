@@ -3,6 +3,8 @@
 .DS_Store
 .*.sw?
 .python-version
+tags
+dotx-development_requirements.txt
 *.egg-info/
 __pycache__/
 .mypy_cache/

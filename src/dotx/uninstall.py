@@ -15,7 +15,7 @@ from dotx.plan import Action, Plan, mark_all_descendents
 from dotx.install import plan_install_paths
 
 
-def plan_uninstall(source_package_root: Path, destination_root: Path, excludes: list[str] = None) -> Plan:
+def plan_uninstall(source_package_root: Path, destination_root: Path, excludes: list[str]|None = None) -> Plan:
     plan: Plan = plan_install_paths(source_package_root, excludes)
 
     for current_root, child_directories, child_files in os.walk(source_package_root):

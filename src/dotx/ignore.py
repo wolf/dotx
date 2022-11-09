@@ -16,10 +16,9 @@ Exported functions:
 from fnmatch import fnmatch
 import logging
 from pathlib import Path
-from typing import Optional
 
 
-def should_ignore_this_object(file_system_object: Path, excludes: list[str] = None) -> bool:
+def should_ignore_this_object(file_system_object: Path, excludes: list[str]|None = None) -> bool:
     """Returns True if `file_system_object` should be ignored according to the list of excludes.
 
     Takes two arguments:
@@ -43,7 +42,7 @@ def should_ignore_this_object(file_system_object: Path, excludes: list[str] = No
     return False
 
 
-def prune_ignored_directories(root: Path, directories: list[str], excludes: Optional[list[str]]) -> list[str]:
+def prune_ignored_directories(root: Path, directories: list[str], excludes: list[str]|None) -> list[str]:
     """Returns a list dirnames that are _not_ ignored to replace an existing list in a top-down `os.walk`.
 
     Takes three arguments:

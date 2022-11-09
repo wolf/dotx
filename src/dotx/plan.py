@@ -165,13 +165,13 @@ def extract_plan(plan: Plan, actions: set[Action]) -> list[PlanNode]:
     ]
 
 
-def log_extracted_failures(plan: Plan, *, description: str = None, log_level=logging.INFO, key=None):
+def log_extracted_failures(plan: Plan, *, description: str|None = None, log_level=logging.INFO, key=None):
     """Convenience function to call `log_extracted_plan` looking only for failures."""
     log_extracted_plan(plan, description=description, log_level=log_level, key=key, actions_to_extract={Action.FAIL})
 
 
 def log_extracted_plan(
-    plan: Plan, *, description: str = None, log_level=logging.INFO, key=None, actions_to_extract=None
+    plan: Plan, *, description: str|None = None, log_level=logging.INFO, key=None, actions_to_extract=None
 ):
     """Extract the steps of a plan according to `actions_to_extract` and log them at the given log level.
 
