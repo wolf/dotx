@@ -1,5 +1,6 @@
-"""This module provides convenience functions for accessing user-data on the associated `click.Context`."""
-
+"""
+This module provides convenience functions for accessing user-data on the associated `click.Context`.
+"""
 
 import click
 
@@ -16,6 +17,7 @@ def set_option(option: str, value, ctx=None) -> bool:
 
 
 def get_option(option: str, default_for_option=None, ctx=None):
+    # TODO: annotate the right return type.  Is it bool?  Is it typing.Any?  Do I have to check?
     if ctx is None:
         ctx = click.get_current_context()
     if ctx is not None and ctx.obj is not None and option in ctx.obj:

@@ -1,3 +1,6 @@
+# TODO: put a docstring here
+# TODO: I'm using click, should I convert to typer?
+
 import logging
 import pathlib
 from typing import Tuple
@@ -15,17 +18,41 @@ from dotx.plan import Action, Plan, execute_plan, extract_plan, log_extracted_pl
 @click.option("--verbose/--quiet", default=False)
 @click.option(
     "--log",
-    type=click.Path(exists=False, file_okay=True, dir_okay=False, writable=True, readable=True, path_type=pathlib.Path),
+    type=click.Path(
+        exists=False,
+        file_okay=True,
+        dir_okay=False,
+        writable=True,
+        readable=True,
+        path_type=pathlib.Path,
+    ),
     help="Where to write the log (defaults to stderr)",
 )
 @click.option(
     "--target",
     envvar="HOME",
-    type=click.Path(exists=True, file_okay=False, dir_okay=True, writable=True, readable=True, path_type=pathlib.Path),
+    type=click.Path(
+        exists=True,
+        file_okay=False,
+        dir_okay=True,
+        writable=True,
+        readable=True,
+        path_type=pathlib.Path,
+    ),
     help="Where to install (defaults to $HOME)",
 )
-@click.option("--dry-run/--no-dry-run", default=False, help="Just echo; don't actually (un)install.")
-@click.option("-i", "--ignore", type=str, multiple=True, help="a pattern to exclude from installation")
+@click.option(
+    "--dry-run/--no-dry-run",
+    default=False,
+    help="Just echo; don't actually (un)install.",
+)
+@click.option(
+    "-i",
+    "--ignore",
+    type=str,
+    multiple=True,
+    help="a pattern to exclude from installation",
+)
 @click.pass_context
 def cli(
     ctx: click.Context,
@@ -34,18 +61,30 @@ def cli(
     log: pathlib.Path,
     target: pathlib.Path,
     dry_run: bool,
-    ignore: Tuple[str, ...]|None,
+    ignore: Tuple[str, ...] | None,
 ):
     """Manage a link farm: (un)install groups of links from "source packages"."""
-    ignore_list: list[str]|None = None
+    ignore_list: list[str] | None = None
     if ignore is not None:
         ignore_list = list(ignore)
-    ctx.obj = {"DEBUG": debug, "VERBOSE": verbose, "TARGET": target, "DRYRUN": dry_run, "IGNORE": ignore_list}
+    ctx.obj = {
+        "DEBUG": debug,
+        "VERBOSE": verbose,
+        "TARGET": target,
+        "DRYRUN": dry_run,
+        "IGNORE": ignore_list,
+    }
     log_level = logging.DEBUG if debug else logging.WARNING
     if log is None:
-        logging.basicConfig(format="%(asctime)s:%(levelname)s:%(message)s", level=log_level)
+        logging.basicConfig(
+            format="%(asctime)s:%(levelname)s:%(message)s", level=log_level
+        )
     else:
-        logging.basicConfig(filename=log, format="%(asctime)s:%(levelname)s:%(message)s", level=log_level)
+        logging.basicConfig(
+            filename=log,
+            format="%(asctime)s:%(levelname)s:%(message)s",
+            level=log_level,
+        )
     logging.info(ctx.obj)
 
 
@@ -53,18 +92,26 @@ def cli(
 @click.argument(
     "sources",
     nargs=-1,
-    type=click.Path(exists=True, file_okay=False, dir_okay=True, readable=True, path_type=pathlib.Path),
+    type=click.Path(
+        exists=True,
+        file_okay=False,
+        dir_okay=True,
+        readable=True,
+        path_type=pathlib.Path,
+    ),
 )
 @click.pass_context
 def install(ctx, sources):
     """install [source-package...]"""
     logging.info("install starting")
-    destination_root = get_option("TARGET")
+    destination_root = pathlib.Path(get_option("TARGET"))
 
     if sources:
-        plans: list[(pathlib.Path, Plan)] = []
+        plans: list[Tuple[pathlib.Path, Plan]] = []
         for source_package in sources:
-            plan: Plan = plan_install(source_package, destination_root, get_option("IGNORE"))
+            plan: Plan = plan_install(
+                source_package, destination_root, get_option("IGNORE")
+            )
             log_extracted_plan(
                 plan,
                 description=f"Actual plan to install {source_package}",
@@ -77,9 +124,13 @@ def install(ctx, sources):
             failures = extract_plan(plan, {Action.FAIL})
             if failures:
                 can_install = False
-                click.echo(f"Error: can't install {source_package} because it would overwrite:")
+                click.echo(
+                    f"Error: can't install {source_package} because it would overwrite:"
+                )
                 for plan_node in failures:
-                    click.echo(f"{destination_root / plan_node.relative_destination_path}")
+                    click.echo(
+                        f"{destination_root / plan_node.relative_destination_path}"
+                    )
                 click.echo()
 
         if can_install:
@@ -94,7 +145,13 @@ def install(ctx, sources):
 @click.argument(
     "sources",
     nargs=-1,
-    type=click.Path(exists=True, file_okay=False, dir_okay=True, readable=True, path_type=pathlib.Path),
+    type=click.Path(
+        exists=True,
+        file_okay=False,
+        dir_okay=True,
+        readable=True,
+        path_type=pathlib.Path,
+    ),
 )
 @click.pass_context
 def uninstall(ctx, sources):
@@ -103,11 +160,15 @@ def uninstall(ctx, sources):
     destination_root = get_option("TARGET")
 
     if sources:
-        plans: list[(pathlib.Path, Plan)] = []
+        plans: list[Tuple[pathlib.Path, Plan]] = []
         for source_package in sources:
-            plan: Plan = plan_uninstall(source_package, destination_root, get_option("IGNORE"))
+            plan: Plan = plan_uninstall(
+                source_package, destination_root, get_option("IGNORE")
+            )
             log_extracted_plan(
-                plan, description=f"Actual plan to uninstall {source_package}", actions_to_extract={Action.UNLINK}
+                plan,
+                description=f"Actual plan to uninstall {source_package}",
+                actions_to_extract={Action.UNLINK},
             )
             plans.append((source_package, plan))
 

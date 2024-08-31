@@ -1,4 +1,5 @@
-"""This module provides the tools to plan an install
+"""
+This module provides the tools to plan an install
 
 Builds a `dotx.plan.Plan` designed to install (mostly by linking) the files present in the source package root
 into the destination root.  That plan can then be executed by `dotx.plan.execute_plan`.
@@ -9,16 +10,28 @@ Exported functions:
 """
 
 
+# TODO: update docstrings for functions to list parameters and return values
+
 import logging
 import os
 from pathlib import Path
 
 from dotx.ignore import prune_ignored_directories, should_ignore_this_object
-from dotx.plan import Action, Plan, PlanNode, log_extracted_plan, mark_all_ancestors, mark_immediate_children
+from dotx.plan import (
+    Action,
+    Plan,
+    PlanNode,
+    log_extracted_plan,
+    mark_all_ancestors,
+    mark_immediate_children,
+)
 
 
-def plan_install(source_package_root: Path, destination_root: Path, excludes: list[str]|None = None) -> Plan:
-    """Create a plan to install the contents of `source_package_root` into `destination_root` ignoring `excludes`.
+def plan_install(
+    source_package_root: Path, destination_root: Path, excludes: list[str] | None = None
+) -> Plan:
+    """
+    Create a plan to install the contents of `source_package_root` into `destination_root` ignoring `excludes`.
 
     The algorithm is to traverse, with a bottom-up call to `os.walk`, the source package, determining which paths
     already exists at the destination, which must be created, renamed, linked, or already exist in a way that causes
@@ -26,20 +39,25 @@ def plan_install(source_package_root: Path, destination_root: Path, excludes: li
 
     Takes three arguments:
         source_package_root:    a pathlib.Path to the directory containing the files (hierarchy) to be installed
-        destination_rootL       a pathlib.Path where the source files should be installed, e.g., $HOME
+        destination_root:       a pathlib.Path where the source files should be installed, e.g., $HOME
         excludes:               a list of strings, path components that will cause a source file to be ignored
 
     Returns: a `Plan` with all the information needed to complete an install, or to fail
     """
     plan: Plan = plan_install_paths(source_package_root, excludes)
 
-    for current_root, child_directories, child_files in os.walk(source_package_root, topdown=False):
+    # TODO: add comments, this loop looks impenetrable
+    for current_root, child_directories, child_files in os.walk(
+        source_package_root, topdown=False
+    ):
         current_root_path = Path(current_root)
         relative_root_path = current_root_path.relative_to(source_package_root)
         if relative_root_path not in plan:
             continue
 
-        relative_destination_root_path = plan[relative_root_path].relative_destination_path
+        relative_destination_root_path = plan[
+            relative_root_path
+        ].relative_destination_path
 
         found_children_to_rename = False
         for child in child_directories + child_files:
@@ -48,7 +66,10 @@ def plan_install(source_package_root: Path, destination_root: Path, excludes: li
                 continue
             if plan[child_relative_source_path].requires_rename:
                 found_children_to_rename = True
-            destination_path = destination_root / plan[child_relative_source_path].relative_destination_path
+            destination_path = (
+                destination_root
+                / plan[child_relative_source_path].relative_destination_path
+            )
             if destination_path.exists() and destination_path.is_file():
                 plan[child_relative_source_path].action = Action.FAIL
 
@@ -56,10 +77,20 @@ def plan_install(source_package_root: Path, destination_root: Path, excludes: li
             plan[relative_root_path].action = Action.EXISTS
         elif found_children_to_rename:
             plan[relative_root_path].action = Action.CREATE
-            mark_all_ancestors(relative_root_path, mark=Action.CREATE, stop_mark=Action.EXISTS, plan=plan)
+            mark_all_ancestors(
+                relative_root_path,
+                mark=Action.CREATE,
+                stop_mark=Action.EXISTS,
+                plan=plan,
+            )
         elif (destination_root / relative_destination_root_path).exists():
             plan[relative_root_path].action = Action.EXISTS
-            mark_all_ancestors(relative_root_path, mark=Action.EXISTS, stop_mark=Action.EXISTS, plan=plan)
+            mark_all_ancestors(
+                relative_root_path,
+                mark=Action.EXISTS,
+                stop_mark=Action.EXISTS,
+                plan=plan,
+            )
         else:
             plan[relative_root_path].action = Action.LINK
 
@@ -84,8 +115,11 @@ def plan_install(source_package_root: Path, destination_root: Path, excludes: li
     return plan
 
 
-def plan_install_paths(source_package_root: Path, excludes: list[str]|None = None) -> Plan:
-    """Construct an initial `Plan` that contains only the affected paths.
+def plan_install_paths(
+    source_package_root: Path, excludes: list[str] | None = None
+) -> Plan:
+    """
+    Construct an initial `Plan` that contains only the affected paths.
 
     The algorithm is to traverse, with a top-down call to `os.walk`, the file-system objects within
     `source_package_root`, deciding along the way which ones are directories, and independent of that, which ones
@@ -105,12 +139,25 @@ def plan_install_paths(source_package_root: Path, excludes: list[str]|None = Non
 
     Returns: a `Plan` with correct paths, `is_dir`, and `requires_rename` in every node.
     """
-    logging.info(f"Planning install paths for source package {source_package_root} excluding {excludes}")
-    plan: Plan = {Path("."): PlanNode(Action.EXISTS, False, Path("."), Path("."), True)}
+    logging.info(
+        f"Planning install paths for source package {source_package_root} excluding {excludes}"
+    )
+    plan: Plan = {
+        Path("."): PlanNode(
+            action=Action.EXISTS,
+            requires_rename=False,
+            relative_source_path=Path("."),
+            relative_destination_path=Path("."),
+            is_dir=True,
+        )
+    }
 
+    # TODO: more comments; another impenetrable loop
     for current_root, child_directories, child_files in os.walk(source_package_root):
         current_root_path = Path(current_root)
-        child_directories[:] = prune_ignored_directories(current_root_path, child_directories, excludes)
+        child_directories[:] = prune_ignored_directories(
+            current_root_path, child_directories, excludes
+        )
         if should_ignore_this_object(current_root_path, excludes):
             continue
 
@@ -124,21 +171,25 @@ def plan_install_paths(source_package_root: Path, excludes: list[str]|None = Non
                 continue
             if child.startswith("dot-"):
                 requires_rename = True
-                child_relative_destination_path = current_destination_path / ("." + child[4:])
+                child_relative_destination_path = current_destination_path / (
+                    "." + child[4:]
+                )
             else:
                 child_relative_destination_path = current_destination_path / child
             plan[child_relative_source_path] = PlanNode(
-                Action.NONE,
-                requires_rename,
-                child_relative_source_path,
-                child_relative_destination_path,
-                (source_package_root / child_relative_source_path).is_dir(),
+                action=Action.NONE,
+                requires_rename=requires_rename,
+                relative_source_path=child_relative_source_path,
+                relative_destination_path=child_relative_destination_path,
+                is_dir=(source_package_root / child_relative_source_path).is_dir(),
             )
 
     log_extracted_plan(
         plan,
         description="planned (un)install paths",
-        key=lambda node: str(node.relative_source_path) + "->" + str(node.relative_destination_path),
+        key=lambda node: str(node.relative_source_path)
+        + "->"
+        + str(node.relative_destination_path),
         actions_to_extract={Action.NONE},
     )
     return plan

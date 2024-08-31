@@ -1,4 +1,5 @@
-"""This module provides the tools to match lists of component names to ignore against actual file-system Paths.
+"""
+This module provides the tools to match lists of component names to ignore against actual file-system Paths.
 
 This is not an extremely robust or fancy implementation.  The names in the excludes list are glob patterns that will
 be matched against the entire path of the object in question, and also against each component of that path. Thus,
@@ -18,8 +19,14 @@ import logging
 from pathlib import Path
 
 
-def should_ignore_this_object(file_system_object: Path, excludes: list[str]|None = None) -> bool:
-    """Returns True if `file_system_object` should be ignored according to the list of excludes.
+# TODO: figure out how to implement an ignore file
+
+
+def should_ignore_this_object(
+    file_system_object: Path, excludes: list[str] | None = None
+) -> bool:
+    """
+    Returns True if `file_system_object` should be ignored according to the list of excludes.
 
     Takes two arguments:
         file_system_object: a pathlib.Path identifying the object we are testing
@@ -42,8 +49,11 @@ def should_ignore_this_object(file_system_object: Path, excludes: list[str]|None
     return False
 
 
-def prune_ignored_directories(root: Path, directories: list[str], excludes: list[str]|None) -> list[str]:
-    """Returns a list dirnames that are _not_ ignored to replace an existing list in a top-down `os.walk`.
+def prune_ignored_directories(
+    root: Path, directories: list[str], excludes: list[str] | None
+) -> list[str]:
+    """
+    Returns a list dirnames that are _not_ ignored to replace an existing list in a top-down `os.walk`.
 
     Takes three arguments:
         root:           a pathlib.Path, the directory that holds the dirs listed in `directories`
@@ -54,4 +64,8 @@ def prune_ignored_directories(root: Path, directories: list[str], excludes: list
     in a top-down `os.walk`, e.g., dirnames[:] = prune_ignored_directories(Path(dirpath), dirnames, excludes).  That
     would stop `os.walk` from descending into excluded directories.
     """
-    return [dirname for dirname in directories if not should_ignore_this_object(root / dirname, excludes)]
+    return [
+        dirname
+        for dirname in directories
+        if not should_ignore_this_object(root / dirname, excludes)
+    ]

@@ -1,4 +1,5 @@
-"""This module provides the tools to describe and manipulate a (un)install plan.
+"""
+This module provides the tools to describe and manipulate a (un)install plan.
 
 The basic idea is the clients investigate a file-system tree (hierarchy) building a dictionary of `PlanNode`s along
 the way.  Each `PlanNode` describes in detail what to do to a single file-system object.  As the client makes
@@ -23,7 +24,6 @@ Exported functions:
     mark_immediate_children
 """
 
-
 import logging
 from dataclasses import dataclass
 from enum import Enum
@@ -33,7 +33,8 @@ from dotx.options import is_dry_run
 
 
 class Action(Enum):
-    """An `Enum` to describe what is or will happen to a given file-system object in a plan.
+    """
+    An `Enum` to describe what is or will happen to a given file-system object in a plan.
 
     Values:
         FAIL:   a file that already exists in the destination cannot be replaced, the install fails
@@ -56,7 +57,8 @@ class Action(Enum):
 
 @dataclass
 class PlanNode:
-    """Provides all the information needed to install or uninstall a single file-system object
+    """
+    Provides all the information needed to install or uninstall a single file-system object
 
     Attributes:
         action:                     what this `PlanNode` indicates about the underlying file-system object, e.g.,
@@ -82,7 +84,8 @@ Plan = dict[Path, PlanNode]
 
 
 def execute_plan(source_package_root: Path, destination_root: Path, plan: Plan):
-    """Create, link, or unlink files and directories as indicated by the supplied `plan`.
+    """
+    Create, link, or unlink files and directories as indicated by the supplied `plan`.
 
     This function is used to actually make an install or an uninstall happen.  If this is a dry-run,
     then just print the shell commands it would take to do the install or uninstall.  Otherwise,
@@ -131,6 +134,7 @@ def execute_plan(source_package_root: Path, destination_root: Path, plan: Plan):
                 exit(2)
 
     steps = extract_plan(plan, actions={Action.CREATE, Action.LINK, Action.UNLINK})
+    # TODO: dry run test is outside the loop, so the loop is doubled.  Do I like that?  Or move it inside?
     if is_dry_run():
         for step in steps:
             command = build_shell_command(step)
@@ -146,7 +150,8 @@ def execute_plan(source_package_root: Path, destination_root: Path, plan: Plan):
 
 
 def extract_plan(plan: Plan, actions: set[Action]) -> list[PlanNode]:
-    """Converts a `Plan` into an ordered list, extracting just the nodes you care about (according to `Action`).
+    """
+    Converts a `Plan` into an ordered list, extracting just the nodes you care about (according to `Action`).
 
     The key features of this function are how it sorts the resulting list, and how it chooses which `PlanNode`s go
     into the list.  It sorts according `relative_source_path`, automatically giving you a list of nodes which allow
@@ -161,19 +166,35 @@ def extract_plan(plan: Plan, actions: set[Action]) -> list[PlanNode]:
     Returns: an ordered list of `PlanNode`s.
     """
     return [
-        node for node in sorted(plan.values(), key=lambda node: node.relative_source_path) if node.action in actions
+        node
+        for node in sorted(plan.values(), key=lambda node: node.relative_source_path)
+        if node.action in actions
     ]
 
 
-def log_extracted_failures(plan: Plan, *, description: str|None = None, log_level=logging.INFO, key=None):
+def log_extracted_failures(
+    plan: Plan, *, description: str | None = None, log_level=logging.INFO, key=None
+):
     """Convenience function to call `log_extracted_plan` looking only for failures."""
-    log_extracted_plan(plan, description=description, log_level=log_level, key=key, actions_to_extract={Action.FAIL})
+    log_extracted_plan(
+        plan,
+        description=description,
+        log_level=log_level,
+        key=key,
+        actions_to_extract={Action.FAIL},
+    )
 
 
 def log_extracted_plan(
-    plan: Plan, *, description: str|None = None, log_level=logging.INFO, key=None, actions_to_extract=None
+    plan: Plan,
+    *,
+    description: str | None = None,
+    log_level=logging.INFO,
+    key=None,
+    actions_to_extract=None,
 ):
-    """Extract the steps of a plan according to `actions_to_extract` and log them at the given log level.
+    """
+    Extract the steps of a plan according to `actions_to_extract` and log them at the given log level.
 
     Takes one positional argument:
         plan:               the plan to (extract from and then) log
@@ -187,7 +208,7 @@ def log_extracted_plan(
     """
     logger = logging.getLogger()
     if key is None:
-        key = lambda node: node
+        key = lambda node: node  # noqa: E731
     if actions_to_extract is None:
         actions_to_extract = {Action.LINK, Action.UNLINK, Action.CREATE}
     if description is None:
@@ -200,7 +221,8 @@ def log_extracted_plan(
 
 
 def mark_all_ancestors(child: Path, mark: Action, stop_mark: Action, plan: Plan):
-    """Mark each parent of `leaf` up the chain with the given `Action` until you hit one whose `action` is `stop_mark`.
+    """
+    Mark each parent of `leaf` up the chain with the given `Action` until you hit one whose `action` is `stop_mark`.
 
     Takes four arguments:
         leaf:       the object whose parents you care about
@@ -216,9 +238,14 @@ def mark_all_ancestors(child: Path, mark: Action, stop_mark: Action, plan: Plan)
 
 
 def mark_all_descendents(
-    parent: Path, mark: Action, allow_overwrite: set[Action], source_package_root: Path, plan: Plan
+    parent: Path,
+    mark: Action,
+    allow_overwrite: set[Action],
+    source_package_root: Path,
+    plan: Plan,
 ):
-    """Mark every descendent of `parent` with the given `Action`, both files and directories.
+    """
+    Mark every descendent of `parent` with the given `Action`, both files and directories.
 
     `allow_overwrite` is key, here.  For instance, `PlanNode`s start with an `action` of `Action.NONE`. If you were
     marking the children with `Action.LINK`, you'd want to be allowed to overwrite those whose `action` was still
@@ -233,16 +260,26 @@ def mark_all_descendents(
     this_directory = source_package_root / parent
     for child in this_directory.iterdir():
         child_relative_path = child.relative_to(source_package_root)
-        if child_relative_path in plan and plan[child_relative_path].action in allow_overwrite:
+        if (
+            child_relative_path in plan
+            and plan[child_relative_path].action in allow_overwrite
+        ):
             plan[child_relative_path].action = mark
         if child.is_dir():
-            mark_all_descendents(child_relative_path, mark, allow_overwrite, source_package_root, plan)
+            mark_all_descendents(
+                child_relative_path, mark, allow_overwrite, source_package_root, plan
+            )
 
 
 def mark_immediate_children(
-    parent: Path, mark: Action, allow_overwrite: set[Action], source_package_root: Path, plan: Plan
+    parent: Path,
+    mark: Action,
+    allow_overwrite: set[Action],
+    source_package_root: Path,
+    plan: Plan,
 ):
-    """Mark each child of `parent` with the given `Action`, both files and directories.
+    """
+    Mark each child of `parent` with the given `Action`, both files and directories.
 
     `allow_overwrite` is key, here.  For instance, `PlanNode`s start with an `action` of `Action.NONE`. If you were
     marking the children with `Action.LINK`, you'd want to be allowed to overwrite those whose `action` was still
@@ -257,5 +294,8 @@ def mark_immediate_children(
     this_directory = source_package_root / parent
     for child in this_directory.iterdir():
         child_relative_path = child.relative_to(source_package_root)
-        if child_relative_path in plan and plan[child_relative_path].action in allow_overwrite:
+        if (
+            child_relative_path in plan
+            and plan[child_relative_path].action in allow_overwrite
+        ):
             plan[child_relative_path].action = mark
