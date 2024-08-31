@@ -3,6 +3,10 @@ from pathlib import Path
 from dotx.ignore import should_ignore_this_object, prune_ignored_directories
 
 
+# Note: nothing in this file actually tries to use the file-system; so we don't need to
+#   use any special fixtures to help with that
+
+
 def test_should_ignore_end_component():
     path = Path("/path/to/dir/ignorable")
 

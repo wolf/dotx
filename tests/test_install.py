@@ -5,12 +5,17 @@ from dotx.install import plan_install, plan_install_paths
 from dotx.plan import Action, PlanNode
 
 
-def test_plan_paths_nothing():
-    with TemporaryDirectory() as source_package_root:
+# TODO: let's use the tmp_path fixture instead of TemporaryDirectory
+# Note: in this file, we never need more than one temporary directory at a time,
+#   so tmp_path is fine.  We don't need tmp_path_factory
 
-        plan = plan_install_paths(Path(source_package_root))
 
-        assert len(plan) == 1
+def test_plan_paths_nothing(tmp_path):
+    source_package_root = tmp_path
+
+    plan = plan_install_paths(source_package_root)
+
+    assert len(plan) == 1
 
 
 def test_plan_paths_normal_file():
@@ -22,7 +27,9 @@ def test_plan_paths_normal_file():
         plan = plan_install_paths(source_package_root_path)
 
         assert len(plan) == 2
-        assert plan[file_path] == PlanNode(Action.NONE, False, file_path, file_path, False)
+        assert plan[file_path] == PlanNode(
+            Action.NONE, False, file_path, file_path, False
+        )
 
 
 def test_plan_paths_normal_file_fail():
@@ -34,7 +41,9 @@ def test_plan_paths_normal_file_fail():
         plan = plan_install_paths(source_package_root_path)
 
         assert len(plan) == 2
-        assert plan[file_path] == PlanNode(Action.NONE, False, file_path, file_path, False)
+        assert plan[file_path] == PlanNode(
+            Action.NONE, False, file_path, file_path, False
+        )
 
 
 def test_plan_paths_hidden_file():
@@ -46,7 +55,9 @@ def test_plan_paths_hidden_file():
         plan = plan_install_paths(source_package_root_path)
 
         assert len(plan) == 2
-        assert plan[file_path] == PlanNode(Action.NONE, False, file_path, file_path, False)
+        assert plan[file_path] == PlanNode(
+            Action.NONE, False, file_path, file_path, False
+        )
 
 
 def test_plan_paths_file_with_renaming():
@@ -58,7 +69,9 @@ def test_plan_paths_file_with_renaming():
         plan = plan_install_paths(source_package_root_path)
 
         assert len(plan) == 2
-        assert plan[file_path] == PlanNode(Action.NONE, True, file_path, Path(".SIMPLE-FILE"), False)
+        assert plan[file_path] == PlanNode(
+            Action.NONE, True, file_path, Path(".SIMPLE-FILE"), False
+        )
 
 
 def test_plan_paths_dir():
@@ -88,8 +101,12 @@ def test_plan_paths_dir_inside_dir():
         plan = plan_install_paths(source_package_root_path)
 
         assert len(plan) == 4
-        assert plan[dir1_path] == PlanNode(Action.NONE, False, dir1_path, dir1_path, True)
-        assert plan[dir2_path] == PlanNode(Action.NONE, False, dir2_path, dir2_path, True)
+        assert plan[dir1_path] == PlanNode(
+            Action.NONE, False, dir1_path, dir1_path, True
+        )
+        assert plan[dir2_path] == PlanNode(
+            Action.NONE, False, dir2_path, dir2_path, True
+        )
         assert plan[file_path].action == Action.NONE
 
 
@@ -120,7 +137,9 @@ def test_plan_paths_dir_with_renamed_file():
 
         assert len(plan) == 3
         assert plan[dir_path] == PlanNode(Action.NONE, False, dir_path, dir_path, True)
-        assert plan[file_path] == PlanNode(Action.NONE, True, file_path, dir_path / ".SIMPLE-FILE", False)
+        assert plan[file_path] == PlanNode(
+            Action.NONE, True, file_path, dir_path / ".SIMPLE-FILE", False
+        )
 
 
 def test_plan_paths_hidden_dir():
@@ -149,7 +168,9 @@ def test_plan_paths_renamed_dir():
         plan = plan_install_paths(source_package_root_path)
 
         assert len(plan) == 3
-        assert plan[dir_path] == PlanNode(Action.NONE, True, dir_path, Path(".SIMPLE-DIR"), True)
+        assert plan[dir_path] == PlanNode(
+            Action.NONE, True, dir_path, Path(".SIMPLE-DIR"), True
+        )
         assert plan[file_path].action == Action.NONE
 
 
@@ -166,9 +187,15 @@ def test_plan_paths_several_normal_files():
         plan = plan_install_paths(source_package_root_path)
 
         assert len(plan) == 4
-        assert plan[file1_path] == PlanNode(Action.NONE, False, file1_path, file1_path, False)
-        assert plan[file2_path] == PlanNode(Action.NONE, False, file2_path, file2_path, False)
-        assert plan[file3_path] == PlanNode(Action.NONE, False, file3_path, file3_path, False)
+        assert plan[file1_path] == PlanNode(
+            Action.NONE, False, file1_path, file1_path, False
+        )
+        assert plan[file2_path] == PlanNode(
+            Action.NONE, False, file2_path, file2_path, False
+        )
+        assert plan[file3_path] == PlanNode(
+            Action.NONE, False, file3_path, file3_path, False
+        )
 
 
 def test_plan_paths_dir_containing_several_files():
@@ -226,14 +253,17 @@ def test_plan_paths_renamed_dir_inside_renamed_dir():
         plan = plan_install_paths(source_package_root_path)
 
         assert len(plan) == 4
-        assert plan[dir1_path] == PlanNode(Action.NONE, True, dir1_path, Path(".SIMPLE-DIR1"), True)
-        assert plan[dir2_path] == PlanNode(Action.NONE, True, dir2_path, Path(".SIMPLE-DIR1/.SIMPLE-DIR2"), True)
+        assert plan[dir1_path] == PlanNode(
+            Action.NONE, True, dir1_path, Path(".SIMPLE-DIR1"), True
+        )
+        assert plan[dir2_path] == PlanNode(
+            Action.NONE, True, dir2_path, Path(".SIMPLE-DIR1/.SIMPLE-DIR2"), True
+        )
         assert plan[file_path].action == Action.NONE
 
 
 def test_install_nothing():
     with TemporaryDirectory() as source_package_root, TemporaryDirectory() as destination_root:
-
         plan = plan_install(Path(source_package_root), Path(destination_root))
 
         assert len(plan) == 0
@@ -248,7 +278,9 @@ def test_install_normal_file():
         plan = plan_install(source_package_root_path, Path(destination_root))
 
         assert len(plan) == 1
-        assert plan[file_path] == PlanNode(Action.LINK, False, file_path, file_path, False)
+        assert plan[file_path] == PlanNode(
+            Action.LINK, False, file_path, file_path, False
+        )
 
 
 def test_install_normal_file_fail():
@@ -262,7 +294,9 @@ def test_install_normal_file_fail():
         plan = plan_install(source_package_root_path, Path(destination_root))
 
         assert len(plan) == 1
-        assert plan[file_path] == PlanNode(Action.FAIL, False, file_path, file_path, False)
+        assert plan[file_path] == PlanNode(
+            Action.FAIL, False, file_path, file_path, False
+        )
 
 
 def test_install_hidden_file():
@@ -274,7 +308,9 @@ def test_install_hidden_file():
         plan = plan_install(source_package_root_path, Path(destination_root))
 
         assert len(plan) == 1
-        assert plan[file_path] == PlanNode(Action.LINK, False, file_path, file_path, False)
+        assert plan[file_path] == PlanNode(
+            Action.LINK, False, file_path, file_path, False
+        )
 
 
 def test_install_file_with_renaming():
@@ -286,7 +322,9 @@ def test_install_file_with_renaming():
         plan = plan_install(source_package_root_path, Path(destination_root))
 
         assert len(plan) == 1
-        assert plan[file_path] == PlanNode(Action.LINK, True, file_path, Path(".SIMPLE-FILE"), False)
+        assert plan[file_path] == PlanNode(
+            Action.LINK, True, file_path, Path(".SIMPLE-FILE"), False
+        )
 
 
 def test_install_dir():
@@ -316,8 +354,12 @@ def test_install_dir_inside_dir():
         plan = plan_install(source_package_root_path, Path(destination_root))
 
         assert len(plan) == 3
-        assert plan[dir1_path] == PlanNode(Action.LINK, False, dir1_path, dir1_path, True)
-        assert plan[dir2_path] == PlanNode(Action.SKIP, False, dir2_path, dir2_path, True)
+        assert plan[dir1_path] == PlanNode(
+            Action.LINK, False, dir1_path, dir1_path, True
+        )
+        assert plan[dir2_path] == PlanNode(
+            Action.SKIP, False, dir2_path, dir2_path, True
+        )
         assert plan[file_path].action == Action.SKIP
 
 
@@ -347,8 +389,12 @@ def test_install_dir_with_renamed_file():
         plan = plan_install(source_package_root_path, Path(destination_root))
 
         assert len(plan) == 2
-        assert plan[dir_path] == PlanNode(Action.CREATE, False, dir_path, dir_path, True)
-        assert plan[file_path] == PlanNode(Action.LINK, True, file_path, dir_path / ".SIMPLE-FILE", False)
+        assert plan[dir_path] == PlanNode(
+            Action.CREATE, False, dir_path, dir_path, True
+        )
+        assert plan[file_path] == PlanNode(
+            Action.LINK, True, file_path, dir_path / ".SIMPLE-FILE", False
+        )
 
 
 def test_install_hidden_dir():
@@ -377,7 +423,9 @@ def test_install_renamed_dir():
         plan = plan_install(source_package_root_path, Path(destination_root))
 
         assert len(plan) == 2
-        assert plan[dir_path] == PlanNode(Action.LINK, True, dir_path, Path(".SIMPLE-DIR"), True)
+        assert plan[dir_path] == PlanNode(
+            Action.LINK, True, dir_path, Path(".SIMPLE-DIR"), True
+        )
         assert plan[file_path].action == Action.SKIP
 
 
@@ -394,9 +442,15 @@ def test_install_several_normal_files():
         plan = plan_install(source_package_root_path, Path(destination_root))
 
         assert len(plan) == 3
-        assert plan[file1_path] == PlanNode(Action.LINK, False, file1_path, file1_path, False)
-        assert plan[file2_path] == PlanNode(Action.LINK, False, file2_path, file2_path, False)
-        assert plan[file3_path] == PlanNode(Action.LINK, False, file3_path, file3_path, False)
+        assert plan[file1_path] == PlanNode(
+            Action.LINK, False, file1_path, file1_path, False
+        )
+        assert plan[file2_path] == PlanNode(
+            Action.LINK, False, file2_path, file2_path, False
+        )
+        assert plan[file3_path] == PlanNode(
+            Action.LINK, False, file3_path, file3_path, False
+        )
 
 
 def test_install_dir_containing_several_files():
@@ -435,7 +489,9 @@ def test_install_dir_containing_several_files_including_rename():
         plan = plan_install(source_package_root_path, Path(destination_root))
 
         assert len(plan) == 4
-        assert plan[dir_path] == PlanNode(Action.CREATE, False, dir_path, dir_path, True)
+        assert plan[dir_path] == PlanNode(
+            Action.CREATE, False, dir_path, dir_path, True
+        )
         assert plan[file1_path].action == Action.LINK
         assert plan[file1_path].requires_rename
         assert plan[file2_path].action == Action.LINK
@@ -454,6 +510,10 @@ def test_install_renamed_dir_inside_renamed_dir():
         plan = plan_install(source_package_root_path, Path(destination_root))
 
         assert len(plan) == 3
-        assert plan[dir1_path] == PlanNode(Action.CREATE, True, dir1_path, Path(".SIMPLE-DIR1"), True)
-        assert plan[dir2_path] == PlanNode(Action.LINK, True, dir2_path, Path(".SIMPLE-DIR1/.SIMPLE-DIR2"), True)
+        assert plan[dir1_path] == PlanNode(
+            Action.CREATE, True, dir1_path, Path(".SIMPLE-DIR1"), True
+        )
+        assert plan[dir2_path] == PlanNode(
+            Action.LINK, True, dir2_path, Path(".SIMPLE-DIR1/.SIMPLE-DIR2"), True
+        )
         assert plan[file_path].action == Action.SKIP
