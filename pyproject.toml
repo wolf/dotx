@@ -1,49 +1,24 @@
-[project]
+[tool.poetry]
 name = "dotx"
 version = "0.1.2a0"
-authors = [
-    { name="Wolf", email="wolf@zv.cx" },
-]
 description = "A command-line tool to install a link-farm to your dotfiles"
+authors = ["Wolf <Wolf@zv.cx>"]
+license = "MIT"
 readme = "README.md"
-license = { file="LICENSE" }
-requires-python = ">=3.10"
-classifiers = [
-    "Programming Language :: Python :: 3",
-    "License :: OSI Approved :: MIT License",
-    "Operating System :: OS Independent",
-    "Development Status :: 3 - Alpha",
-    "Environment :: Console",
-    "Intended Audience :: Developers",
 
-]
-dependencies = [
-    "click",
-]
+[tool.poetry.dependencies]
+python = "^3.11"
+click = "^8.1.3"
 
-[project.optional-dependencies]
-dev = [
-    "black",
-    "coverage",
-    "ipython",
-    "isort",
-    "mypy",
-    "pytest",
-]
-
-[project.urls]
-"Homepage" = "https://github.com/wolf/dotx"
-"Bug Tracker" = "https://github.com/wolf/dotx/issues"
+[tool.poetry.group.dev.dependencies]
+black = "^22.10.0"
+coverage = "^6.5.0"
+ipython = "^8.7.0"
+isort = "^5.10.1"
+mypy = "^0.991"
+pytest = "^7.2.0"
+python-lsp-server = "^1.7.3"
 
 [build-system]
-requires = ["hatch"]
-build-backend = "hatchling.build"
-
-[project.scripts]
-dotx = "dotx.cli:cli"
-
-[tool.black]
-line-length = 120
-
-[tool.isort]
-profile = "black"
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
