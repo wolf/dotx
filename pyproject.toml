@@ -1,24 +1,30 @@
-[tool.poetry]
+[project]
 name = "dotx"
 version = "0.1.2a0"
 description = "A command-line tool to install a link-farm to your dotfiles"
-authors = ["Wolf <Wolf@zv.cx>"]
-license = "MIT"
+authors = [
+    { name = "Wolf", email = "Wolf@zv.cx" }
+]
+license = { file = "LICENSE" }
 readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "click>=8.1.7",
+    "typer>=0.15.1",
+]
 
-[tool.poetry.dependencies]
-python = "^3.11"
-click = "^8.1.3"
-
-[tool.poetry.group.dev.dependencies]
-black = "^22.10.0"
-coverage = "^6.5.0"
-ipython = "^8.7.0"
-isort = "^5.10.1"
-mypy = "^0.991"
-pytest = "^7.2.0"
-python-lsp-server = "^1.7.3"
+[dependency-groups]
+dev = [
+    "black>=24.10.0",
+    "coverage>=7.6.9",
+    "ipython>=8.30.0",
+    "isort>=5.13.2",
+    "mypy>=1.13.0",
+    "pre-commit>=4.0.1",
+    "pytest>=8.3.4",
+    "python-lsp-server>=1.12.0",
+]
 
 [build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"

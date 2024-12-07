@@ -2,9 +2,8 @@
 *.log
 .DS_Store
 .*.sw?
-.python-version
+.pre-commit-config.yaml
 tags
-dotx-development_requirements.txt
 *.egg-info/
 __pycache__/
 .mypy_cache/
