@@ -16,7 +16,7 @@ import logging
 import os
 from pathlib import Path
 
-from dotx.ignore import prune_ignored_directories, should_ignore_this_object
+from dotx.ignore import IgnoreRules
 from dotx.plan import (
     Action,
     Plan,
@@ -27,24 +27,17 @@ from dotx.plan import (
 )
 
 
-def plan_install(
-    source_package_root: Path, destination_root: Path, excludes: list[str] | None = None
-) -> Plan:
+def plan_install(source_package_root: Path, destination_root: Path) -> Plan:
     """
-    Create a plan to install the contents of `source_package_root` into `destination_root` ignoring `excludes`.
+    Create a plan to install the contents of `source_package_root` into `destination_root`.
 
     The algorithm is to traverse, with a bottom-up call to `os.walk`, the source package, determining which paths
     already exists at the destination, which must be created, renamed, linked, or already exist in a way that causes
     a failure.
 
-    Takes three arguments:
-        source_package_root:    a pathlib.Path to the directory containing the files (hierarchy) to be installed
-        destination_root:       a pathlib.Path where the source files should be installed, e.g., $HOME
-        excludes:               a list of strings, path components that will cause a source file to be ignored
-
     Returns: a `Plan` with all the information needed to complete an install, or to fail
     """
-    plan: Plan = plan_install_paths(source_package_root, excludes)
+    plan: Plan = plan_install_paths(source_package_root)
 
     # TODO: add comments, this loop looks impenetrable
     for current_root, child_directories, child_files in os.walk(
@@ -115,9 +108,7 @@ def plan_install(
     return plan
 
 
-def plan_install_paths(
-    source_package_root: Path, excludes: list[str] | None = None
-) -> Plan:
+def plan_install_paths(source_package_root: Path) -> Plan:
     """
     Construct an initial `Plan` that contains only the affected paths.
 
@@ -125,23 +116,20 @@ def plan_install_paths(
     `source_package_root`, deciding along the way which ones are directories, and independent of that, which ones
     need to be renamed to be installed correctly.  The `plan.Action` for all of these nodes is `Action.NONE` so they
     can easily be overwritten later by code that figures out exactly what needs to be done.  No nodes are created for
-    file-system objects that are "ignored" (as described by `excludes`).  Files or directories whose source name
+    file-system objects that are ignored according to .dotxignore files.  Files or directories whose source name
     begins with "dot-", e.g., "dot-bashrc", are marked as needing to be renamed on the way to installation and the
     destination name is calculated here, substituting an actual "." for the "dot-" prefix.  Because the paths are
     visited top-down, renamed parents already have their correct destination path recorded, so the complete path is
     always known.  Because the destination paths are all relative to the destination root, the actual destination
     root is not needed.
 
-    Takes two arguments:
-        source_package_root:    the actual directory _containing_ the files or directories to install
-        excludes:               a list of strings that are path components indicating a file-system object should be
-                                ignored
-
     Returns: a `Plan` with correct paths, `is_dir`, and `requires_rename` in every node.
     """
-    logging.info(
-        f"Planning install paths for source package {source_package_root} excluding {excludes}"
-    )
+    logging.info(f"Planning install paths for source package {source_package_root}")
+
+    # Initialize ignore rules (loads global ignore and will load .dotxignore files during traversal)
+    ignore_rules = IgnoreRules()
+
     plan: Plan = {
         Path("."): PlanNode(
             action=Action.EXISTS,
@@ -155,10 +143,17 @@ def plan_install_paths(
     # TODO: more comments; another impenetrable loop
     for current_root, child_directories, child_files in os.walk(source_package_root):
         current_root_path = Path(current_root)
-        child_directories[:] = prune_ignored_directories(
-            current_root_path, child_directories, excludes
+
+        # Load .dotxignore from current directory if it exists
+        ignore_rules.load_ignore_file(current_root_path)
+
+        # Prune ignored directories to prevent descending into them
+        child_directories[:] = ignore_rules.prune_directories(
+            current_root_path, child_directories, source_package_root
         )
-        if should_ignore_this_object(current_root_path, excludes):
+
+        # Skip this directory if it should be ignored
+        if ignore_rules.should_ignore(current_root_path, source_package_root):
             continue
 
         relative_root_path = current_root_path.relative_to(source_package_root)
@@ -166,8 +161,11 @@ def plan_install_paths(
 
         for child in child_directories + child_files:
             requires_rename = False
+            child_source_path = source_package_root / relative_root_path / child
             child_relative_source_path = relative_root_path / child
-            if should_ignore_this_object(child_relative_source_path, excludes):
+
+            # Skip ignored files and directories
+            if ignore_rules.should_ignore(child_source_path, source_package_root):
                 continue
             if child.startswith("dot-"):
                 requires_rename = True

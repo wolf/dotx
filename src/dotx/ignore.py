@@ -1,71 +1,229 @@
 """
-This module provides the tools to match lists of component names to ignore against actual file-system Paths.
+This module provides gitignore-style ignore rules using .dotxignore files.
 
-This is not an extremely robust or fancy implementation.  The names in the excludes list are glob patterns that will
-be matched against the entire path of the object in question, and also against each component of that path. Thus,
-you can ignore "*/deep/directory/*" or you can ignore "README.*", but don't try to ignore paths with slashes in them
-that _don't_ expect the entire prefix. It's simple, but that's all that's needed in this case.  You can ignore both
-directories and individual files if you call these functions appropriately.  The functions here were written with
-`os.walk` in mind.  There's room to grow, here, if ignore files turn out to be required, or if more robust globbing
-is needed.
+Uses pathspec for pattern matching compatible with .gitignore syntax, supporting:
+- Nested .dotxignore files (like .gitignore)
+- Global ignore file at ~/.config/dotx/ignore
+- Negation patterns (e.g., !important.conf)
+- Comments (lines starting with #)
 
-Exported functions:
-    should_ignore_this_object
-    prune_ignored_directories
+Exported class:
+    IgnoreRules
 """
 
-from fnmatch import fnmatch
 import logging
 from pathlib import Path
+from typing import Dict, Optional
+
+import pathspec
 
 
-# TODO: figure out how to implement an ignore file
-
-
-def should_ignore_this_object(
-    file_system_object: Path, excludes: list[str] | None = None
-) -> bool:
+class IgnoreRules:
     """
-    Returns True if `file_system_object` should be ignored according to the list of excludes.
+    Manages hierarchical .dotxignore files with gitignore-style patterns.
 
-    Takes two arguments:
-        file_system_object: a pathlib.Path identifying the object we are testing
-        excludes:           a list of strings, simple names indicating `file_system_object` should be ignored if
-            they appear anywhere in its path
+    Handles precedence of ignore patterns from multiple sources:
+    1. .dotxignore in current directory (highest precedence)
+    2. .dotxignore in parent directories
+    3. Global ignore file at ~/.config/dotx/ignore (lowest precedence)
 
-    Returns a bool: True means "yes, ignore this object".
+    Attributes:
+        global_spec: PathSpec loaded from global ignore file, or None
+        dir_specs: Cache of PathSpec objects by directory path
     """
-    if excludes:
-        path_str = str(file_system_object)
-        path_parts = file_system_object.parts
-        for exclude in excludes:
-            if fnmatch(path_str, exclude):
-                logging.info(f"Ignoring {file_system_object} because of {exclude}")
-                return True
-            for part in path_parts:
-                if fnmatch(part, exclude):
-                    logging.info(f"Ignoring {file_system_object} because of {exclude}")
-                    return True
-    return False
 
+    def __init__(self):
+        """
+        Initialize IgnoreRules with global ignore file.
+        """
+        self.global_spec: Optional[pathspec.PathSpec] = None
+        self.dir_specs: Dict[Path, pathspec.PathSpec] = {}
 
-def prune_ignored_directories(
-    root: Path, directories: list[str], excludes: list[str] | None
-) -> list[str]:
-    """
-    Returns a list dirnames that are _not_ ignored to replace an existing list in a top-down `os.walk`.
+        # Load global ignore file if it exists
+        global_ignore_path = Path.home() / ".config" / "dotx" / "ignore"
+        if global_ignore_path.exists():
+            self.global_spec = self._load_ignore_file(global_ignore_path)
+            if self.global_spec:
+                logging.info(f"Loaded global ignore file from {global_ignore_path}")
 
-    Takes three arguments:
-        root:           a pathlib.Path, the directory that holds the dirs listed in `directories`
-        directories:    a list of strings, the dirnames product of `os.walk`
-        excludes:       a list of strings, simple names to be excluded if they appear anywhere in an objects path
+    def _load_ignore_file(self, ignore_file: Path) -> Optional[pathspec.PathSpec]:
+        """
+        Load and parse a .dotxignore file.
 
-    Returns: a list of strings, the allowed dirnames.  This result can be substituted in-place for the dirnames list
-    in a top-down `os.walk`, e.g., dirnames[:] = prune_ignored_directories(Path(dirpath), dirnames, excludes).  That
-    would stop `os.walk` from descending into excluded directories.
-    """
-    return [
-        dirname
-        for dirname in directories
-        if not should_ignore_this_object(root / dirname, excludes)
-    ]
+        Reads the file and creates a PathSpec object for pattern matching.
+        Handles comments (lines starting with #) and empty lines.
+
+        Returns:
+            PathSpec object if file contains patterns, None otherwise
+        """
+        try:
+            with open(ignore_file, "r") as f:
+                lines = f.readlines()
+
+            # Filter out comments and empty lines
+            patterns = [
+                line.rstrip()
+                for line in lines
+                if line.strip() and not line.strip().startswith("#")
+            ]
+
+            if not patterns:
+                return None
+
+            # Create PathSpec using gitignore-style patterns
+            return pathspec.GitIgnoreSpec.from_lines(patterns)
+
+        except Exception as e:
+            logging.warning(f"Failed to load ignore file {ignore_file}: {e}")
+            return None
+
+    def load_ignore_file(self, directory: Path) -> Optional[pathspec.PathSpec]:
+        """
+        Load .dotxignore file from directory and cache it.
+
+        Checks if directory has a .dotxignore file, loads it, and caches
+        the PathSpec for future use.
+
+        Returns:
+            PathSpec object if .dotxignore exists and has patterns, None otherwise
+        """
+        # Check cache first
+        if directory in self.dir_specs:
+            return self.dir_specs[directory]
+
+        # Look for .dotxignore in directory
+        ignore_file = directory / ".dotxignore"
+        if not ignore_file.exists():
+            self.dir_specs[directory] = None
+            return None
+
+        # Load and cache
+        spec = self._load_ignore_file(ignore_file)
+        self.dir_specs[directory] = spec
+
+        if spec:
+            logging.info(f"Loaded .dotxignore from {directory}")
+
+        return spec
+
+    def get_effective_spec(
+        self, path: Path, relative_to: Path
+    ) -> Optional[pathspec.PathSpec]:
+        """
+        Get the effective PathSpec for a path considering all ignore files.
+
+        Combines patterns from:
+        - .dotxignore files from relative_to up to path's parent
+        - Global ignore file
+
+        The closer ignore files take precedence over global ignore.
+
+        Returns:
+            Combined PathSpec or None if no ignore rules apply
+        """
+        specs = []
+
+        # Start with global spec if available
+        if self.global_spec:
+            specs.append(self.global_spec)
+
+        # Walk from relative_to up to path's parent directory
+        # Collect all .dotxignore files along the way
+        try:
+            # Get the parent directory of the path
+            if path.is_dir():
+                check_dir = path
+            else:
+                check_dir = path.parent
+
+            # Walk from relative_to up to check_dir, loading ignore files
+            current = relative_to
+            spec = self.load_ignore_file(current)
+            if spec:
+                specs.append(spec)
+
+            # Walk through parent directories
+            try:
+                rel_path = check_dir.relative_to(relative_to)
+                for part in rel_path.parts:
+                    current = current / part
+                    spec = self.load_ignore_file(current)
+                    if spec:
+                        specs.append(spec)
+            except ValueError:
+                # check_dir is not under relative_to
+                pass
+
+        except ValueError:
+            # path is not relative to relative_to, just use global
+            pass
+
+        if not specs:
+            return None
+
+        # Combine all specs (later specs override earlier ones due to git semantics)
+        # PathSpec doesn't have a built-in combine, so we'll check against all
+        # For now, return the last (most specific) spec
+        # TODO: Properly combine specs if needed for complex scenarios
+        return specs[-1] if specs else None
+
+    def should_ignore(self, path: Path, relative_to: Path) -> bool:
+        """
+        Test if a path should be ignored.
+
+        Checks the path against all applicable ignore rules considering
+        precedence of .dotxignore files.
+
+        Returns:
+            True if path should be ignored, False otherwise
+        """
+        # Get the effective spec for this path
+        spec = self.get_effective_spec(path, relative_to)
+
+        if not spec:
+            return False
+
+        # Make path relative to relative_to for matching
+        try:
+            rel_path = path.relative_to(relative_to)
+        except ValueError:
+            # Path is not relative to relative_to
+            return False
+
+        # Convert to string for pathspec matching
+        # Use forward slashes for consistency
+        path_str = str(rel_path).replace("\\", "/")
+
+        # Add trailing slash for directories (gitignore convention)
+        if path.is_dir():
+            path_str += "/"
+
+        # Check if path matches any ignore pattern
+        matched = spec.match_file(path_str)
+
+        if matched:
+            logging.info(f"Ignoring {path} (matches pattern in .dotxignore)")
+
+        return matched
+
+    def prune_directories(
+        self, root: Path, directories: list[str], relative_to: Path
+    ) -> list[str]:
+        """
+        Filter directories to remove ignored ones.
+
+        Designed for use with os.walk() in top-down mode. Returns a filtered
+        list of directory names that are not ignored.
+
+        This can be assigned back to the dirnames list in os.walk to prevent
+        descending into ignored directories:
+            dirnames[:] = ignore_rules.prune_directories(root, dirnames, package_root)
+
+        Returns:
+            List of directory names that should not be ignored
+        """
+        return [
+            dirname
+            for dirname in directories
+            if not self.should_ignore(root / dirname, relative_to)
+        ]

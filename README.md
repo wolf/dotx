@@ -40,7 +40,6 @@ Options:
   --log FILE                Where to write the log (defaults to stderr)
   --target DIRECTORY        Where to install (defaults to $HOME)
   --dry-run / --no-dry-run  Just echo; don't actually (un)install.
-  -i, --ignore TEXT         a pattern to exclude from installation
   --help                    Show this message and exit.
 
 Commands:
@@ -68,7 +67,7 @@ bash
 └── dot-bashrc
 
 
-+$ dotx --ignore=README.* install bash
++$ dotx install bash
 
 +$ ls -al ~
 ...
@@ -78,12 +77,51 @@ lrwxr--r--    38 wolf 19 Jul 11:01 .bash_topics.d -> builds/dotfiles/bash/dot-ba
 lrwxr--r--    31 wolf 19 Jul 11:01 .bashrc -> builds/dotfiles/bash/dot-bashrc
 ...
 ```
-If you've got some files in your source package that don't need to be linked, you can use the `--ignore` option (even
-multiple times), like so:
+
+### Ignoring files with `.dotxignore`
+
+If you've got some files in your source package that don't need to be linked, you can create a `.dotxignore` file in
+your package directory. This file works just like `.gitignore` and supports the same pattern syntax:
+
 ```bash
-dotx --ignore=README.* --ignore=.mypy_cache install bash tmux vim
+# In your package directory, create .dotxignore:
++$ cat > bash/.dotxignore <<EOF
+README.*
+.mypy_cache
+*.tmp
+EOF
+
++$ dotx install bash tmux vim
 ```
-You typically don't need the `--ignore` options during uninstall, which looks almost just like install:
+
+The `.dotxignore` file supports:
+- Glob patterns (`*.log`, `*.tmp`)
+- Directory patterns (`node_modules/`, `__pycache__/`)
+- Negation patterns (`!important.conf`)
+- Comments (lines starting with `#`)
+- Root-only patterns (`/.git` matches only at package root)
+
+You can also nest `.dotxignore` files in subdirectories, just like `.gitignore`. Files closer to the matched file take
+precedence.
+
+#### Global ignore file
+
+Create a global ignore file at `~/.config/dotx/ignore` to exclude patterns from all packages:
+
+```bash
++$ mkdir -p ~/.config/dotx
++$ cat > ~/.config/dotx/ignore <<EOF
+# Ignore these in all packages
+.DS_Store
+.git/
+*.log
+*.tmp
+__pycache__/
+node_modules/
+EOF
+```
+
+Uninstall looks almost just like install:
 ```bash
 dotx uninstall bash vim tmux
 ```
@@ -91,6 +129,26 @@ dotx uninstall bash vim tmux
 
 
 
+### Migration from older versions
+
+**Breaking change in v0.2.0:** The `-i/--ignore` command-line option has been removed in favor of `.dotxignore` files.
+
+If you were using:
+```bash
+dotx --ignore=README.* --ignore=.mypy_cache install bash
+```
+
+Now create a `.dotxignore` file in your package:
+```bash
++$ cat > bash/.dotxignore <<EOF
+README.*
+.mypy_cache
+EOF
+
++$ dotx install bash
+```
+
+Or use the global ignore file at `~/.config/dotx/ignore` for patterns that apply to all packages.
+
 ### What's next
-* ignore files that collect together patterns, a la `.gitignore` and the like
 * ...

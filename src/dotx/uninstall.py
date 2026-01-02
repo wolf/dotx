@@ -15,10 +15,13 @@ from dotx.plan import Action, Plan, mark_all_descendents
 from dotx.install import plan_install_paths
 
 
-def plan_uninstall(
-    source_package_root: Path, destination_root: Path, excludes: list[str] | None = None
-) -> Plan:
-    plan: Plan = plan_install_paths(source_package_root, excludes)
+def plan_uninstall(source_package_root: Path, destination_root: Path) -> Plan:
+    """
+    Create a plan to uninstall files from destination_root that link to source_package_root.
+
+    Returns: a `Plan` with actions set to UNLINK for symlinks pointing to the source package
+    """
+    plan: Plan = plan_install_paths(source_package_root)
 
     for current_root, _, child_files in os.walk(source_package_root):
         current_root_path = Path(current_root)

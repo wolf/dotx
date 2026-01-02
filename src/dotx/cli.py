@@ -3,7 +3,6 @@
 
 import logging
 import pathlib
-from typing import Tuple
 
 import click
 
@@ -46,13 +45,6 @@ from dotx.plan import Action, Plan, execute_plan, extract_plan, log_extracted_pl
     default=False,
     help="Just echo; don't actually (un)install.",
 )
-@click.option(
-    "-i",
-    "--ignore",
-    type=str,
-    multiple=True,
-    help="a pattern to exclude from installation",
-)
 @click.pass_context
 def cli(
     ctx: click.Context,
@@ -61,18 +53,13 @@ def cli(
     log: pathlib.Path,
     target: pathlib.Path,
     dry_run: bool,
-    ignore: Tuple[str, ...] | None,
 ):
     """Manage a link farm: (un)install groups of links from "source packages"."""
-    ignore_list: list[str] | None = None
-    if ignore is not None:
-        ignore_list = list(ignore)
     ctx.obj = {
         "DEBUG": debug,
         "VERBOSE": verbose,
         "TARGET": target,
         "DRYRUN": dry_run,
-        "IGNORE": ignore_list,
     }
     log_level = logging.DEBUG if debug else logging.WARNING
     if log is None:
@@ -107,11 +94,9 @@ def install(ctx, sources):
     destination_root = pathlib.Path(get_option("TARGET"))
 
     if sources:
-        plans: list[Tuple[pathlib.Path, Plan]] = []
+        plans: list[tuple[pathlib.Path, Plan]] = []
         for source_package in sources:
-            plan: Plan = plan_install(
-                source_package, destination_root, get_option("IGNORE")
-            )
+            plan: Plan = plan_install(source_package, destination_root)
             log_extracted_plan(
                 plan,
                 description=f"Actual plan to install {source_package}",
@@ -160,11 +145,9 @@ def uninstall(ctx, sources):
     destination_root = get_option("TARGET")
 
     if sources:
-        plans: list[Tuple[pathlib.Path, Plan]] = []
+        plans: list[tuple[pathlib.Path, Plan]] = []
         for source_package in sources:
-            plan: Plan = plan_uninstall(
-                source_package, destination_root, get_option("IGNORE")
-            )
+            plan: Plan = plan_uninstall(source_package, destination_root)
             log_extracted_plan(
                 plan,
                 description=f"Actual plan to uninstall {source_package}",
