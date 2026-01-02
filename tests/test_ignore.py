@@ -1,7 +1,5 @@
 """Legacy ignore tests - comprehensive tests are now in test_ignore_rules.py."""
 
-from pathlib import Path
-
 from dotx.ignore import IgnoreRules
 
 

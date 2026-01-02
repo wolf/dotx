@@ -12,9 +12,10 @@ Exported functions:
 
 # TODO: update docstrings for functions to list parameters and return values
 
-import logging
 import os
 from pathlib import Path
+
+from loguru import logger
 
 from dotx.ignore import IgnoreRules
 from dotx.plan import (
@@ -125,7 +126,7 @@ def plan_install_paths(source_package_root: Path) -> Plan:
 
     Returns: a `Plan` with correct paths, `is_dir`, and `requires_rename` in every node.
     """
-    logging.info(f"Planning install paths for source package {source_package_root}")
+    logger.info(f"Planning install paths for source package {source_package_root}")
 
     # Initialize ignore rules (loads global ignore and will load .dotxignore files during traversal)
     ignore_rules = IgnoreRules()

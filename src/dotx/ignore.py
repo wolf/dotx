@@ -11,11 +11,11 @@ Exported class:
     IgnoreRules
 """
 
-import logging
 from pathlib import Path
 from typing import Dict, Optional
 
 import pathspec
+from loguru import logger
 
 
 class IgnoreRules:
@@ -37,14 +37,14 @@ class IgnoreRules:
         Initialize IgnoreRules with global ignore file.
         """
         self.global_spec: Optional[pathspec.PathSpec] = None
-        self.dir_specs: Dict[Path, pathspec.PathSpec] = {}
+        self.dir_specs: Dict[Path, Optional[pathspec.PathSpec]] = {}
 
         # Load global ignore file if it exists
         global_ignore_path = Path.home() / ".config" / "dotx" / "ignore"
         if global_ignore_path.exists():
             self.global_spec = self._load_ignore_file(global_ignore_path)
             if self.global_spec:
-                logging.info(f"Loaded global ignore file from {global_ignore_path}")
+                logger.info(f"Loaded global ignore file from {global_ignore_path}")
 
     def _load_ignore_file(self, ignore_file: Path) -> Optional[pathspec.PathSpec]:
         """
@@ -74,7 +74,7 @@ class IgnoreRules:
             return pathspec.GitIgnoreSpec.from_lines(patterns)
 
         except Exception as e:
-            logging.warning(f"Failed to load ignore file {ignore_file}: {e}")
+            logger.warning(f"Failed to load ignore file {ignore_file}: {e}")
             return None
 
     def load_ignore_file(self, directory: Path) -> Optional[pathspec.PathSpec]:
@@ -102,7 +102,7 @@ class IgnoreRules:
         self.dir_specs[directory] = spec
 
         if spec:
-            logging.info(f"Loaded .dotxignore from {directory}")
+            logger.info(f"Loaded .dotxignore from {directory}")
 
         return spec
 
@@ -202,7 +202,7 @@ class IgnoreRules:
         matched = spec.match_file(path_str)
 
         if matched:
-            logging.info(f"Ignoring {path} (matches pattern in .dotxignore)")
+            logger.info(f"Ignoring {path} (matches pattern in .dotxignore)")
 
         return matched
 

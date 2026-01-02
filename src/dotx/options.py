@@ -2,6 +2,8 @@
 This module provides convenience functions for accessing user-data on the associated `click.Context`.
 """
 
+from typing import Any
+
 import click
 
 
@@ -16,7 +18,7 @@ def set_option(option: str, value, ctx=None) -> bool:
     return False
 
 
-def get_option(option: str, default_for_option=None, ctx=None):
+def get_option(option: str, default_for_option: Any = None, ctx=None) -> Any:
     # TODO: annotate the right return type.  Is it bool?  Is it typing.Any?  Do I have to check?
     if ctx is None:
         ctx = click.get_current_context()

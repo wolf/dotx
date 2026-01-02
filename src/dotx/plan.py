@@ -24,10 +24,11 @@ Exported functions:
     mark_immediate_children
 """
 
-import logging
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
+
+from loguru import logger
 
 from dotx.options import is_dry_run
 
@@ -130,7 +131,7 @@ def execute_plan(source_package_root: Path, destination_root: Path, plan: Plan):
             case Action.UNLINK if destination.is_symlink():
                 destination.unlink()
             case _:
-                logging.critical(f"Bad step: {step}")
+                logger.critical(f"Bad step: {step}")
                 exit(2)
 
     steps = extract_plan(plan, actions={Action.CREATE, Action.LINK, Action.UNLINK})
@@ -139,13 +140,13 @@ def execute_plan(source_package_root: Path, destination_root: Path, plan: Plan):
         for step in steps:
             command = build_shell_command(step)
             if command is not None:
-                logging.info(command)
+                logger.info(command)
                 print(command)
     else:
         for step in steps:
             command = build_shell_command(step)
             if command is not None:
-                logging.info(command)
+                logger.info(command)
             execute_plan_step(step)
 
 
@@ -173,7 +174,7 @@ def extract_plan(plan: Plan, actions: set[Action]) -> list[PlanNode]:
 
 
 def log_extracted_failures(
-    plan: Plan, *, description: str | None = None, log_level=logging.INFO, key=None
+    plan: Plan, *, description: str | None = None, log_level="INFO", key=None
 ):
     """Convenience function to call `log_extracted_plan` looking only for failures."""
     log_extracted_plan(
@@ -189,7 +190,7 @@ def log_extracted_plan(
     plan: Plan,
     *,
     description: str | None = None,
-    log_level=logging.INFO,
+    log_level="INFO",
     key=None,
     actions_to_extract=None,
 ):
@@ -206,7 +207,6 @@ def log_extracted_plan(
         key:                a function to build what you want to print for each individual `PlanNode`
         actions_to_extract: as in other functions, a set of `Action`s controlling exactly which `PlanNode`s will be logged
     """
-    logger = logging.getLogger()
     if key is None:
         key = lambda node: node  # noqa: E731
     if actions_to_extract is None:

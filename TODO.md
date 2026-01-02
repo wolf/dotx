@@ -5,7 +5,7 @@
 - [x] Set up logging
 - [x] Check for leaf files existing, that should throw an exception: this install can't be done without destroying files
 - [x] Usage?  Mark --target as required or else figure out what the default is.  Is it ${HOME}
-- [x] How good can I make ignore.py without it taking over the whole project?  Is ignoring single directories good enough for now?  Yes, ignoring single names withing paths is good enough for now.
+- [x] How good can I make ignore.py without it taking over the whole project?  Is ignoring single directories good enough for now?  Yes, ignoring single names within paths is good enough for now.
 - [x] Add docstrings everywhere
 - [x] Make `execute_plan` the thing that respects "DRYRUN"
 - [x] Try picologging.  Nope: for some reason, picologging doesn't work at all.  Fails with an internal error.  Try again when it has matured a little.

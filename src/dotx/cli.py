@@ -1,10 +1,11 @@
 # TODO: put a docstring here
 # TODO: I'm using click, should I convert to typer?
 
-import logging
 import pathlib
+import sys
 
 import click
+from loguru import logger
 
 from dotx.install import plan_install
 from dotx.uninstall import plan_uninstall
@@ -61,18 +62,17 @@ def cli(
         "TARGET": target,
         "DRYRUN": dry_run,
     }
-    log_level = logging.DEBUG if debug else logging.WARNING
+
+    # Configure loguru
+    logger.remove()  # Remove default handler
+    log_level = "DEBUG" if debug else "WARNING"
+
     if log is None:
-        logging.basicConfig(
-            format="%(asctime)s:%(levelname)s:%(message)s", level=log_level
-        )
+        logger.add(sys.stderr, level=log_level, format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {message}")
     else:
-        logging.basicConfig(
-            filename=log,
-            format="%(asctime)s:%(levelname)s:%(message)s",
-            level=log_level,
-        )
-    logging.info(ctx.obj)
+        logger.add(log, level=log_level, format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {message}")
+
+    logger.info(ctx.obj)
 
 
 @cli.command()
@@ -90,7 +90,7 @@ def cli(
 @click.pass_context
 def install(ctx, sources):
     """install [source-package...]"""
-    logging.info("install starting")
+    logger.info("install starting")
     destination_root = pathlib.Path(get_option("TARGET"))
 
     if sources:
@@ -123,7 +123,7 @@ def install(ctx, sources):
                 execute_plan(source_package, destination_root, plan)
         else:
             click.echo("Refusing to install anything because of previous failures.")
-    logging.info("install finished")
+    logger.info("install finished")
 
 
 @cli.command()
@@ -141,8 +141,8 @@ def install(ctx, sources):
 @click.pass_context
 def uninstall(ctx, sources):
     """uninstall [source-package...]"""
-    logging.info("uninstall starting")
-    destination_root = get_option("TARGET")
+    logger.info("uninstall starting")
+    destination_root = pathlib.Path(get_option("TARGET"))
 
     if sources:
         plans: list[tuple[pathlib.Path, Plan]] = []
@@ -157,4 +157,4 @@ def uninstall(ctx, sources):
 
         for source_package, plan in plans:
             execute_plan(source_package, destination_root, plan)
-    logging.info("uninstall finished")
+    logger.info("uninstall finished")
