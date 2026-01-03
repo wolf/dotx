@@ -22,6 +22,7 @@ import click
 import typer
 from loguru import logger
 
+from dotx import __version__
 from dotx.database import InstallationDB
 from dotx.install import plan_install
 from dotx.options import set_option
@@ -32,6 +33,13 @@ from dotx.uninstall import plan_uninstall
 app = typer.Typer(
     help="Manage a link farm: (un)install groups of links from source packages."
 )
+
+
+def version_callback(value: bool):
+    """Print version and exit."""
+    if value:
+        typer.echo(f"dotx version {__version__}")
+        raise typer.Exit()
 
 
 def configure_logging(debug: bool, verbose: bool, log: Optional[Path]):
@@ -84,6 +92,10 @@ def main(
     dry_run: Annotated[
         bool, typer.Option("--dry-run/--no-dry-run", help="Just echo; don't actually (un)install.")
     ] = False,
+    version: Annotated[
+        Optional[bool],
+        typer.Option("--version", "-V", callback=version_callback, is_eager=True, help="Show version and exit."),
+    ] = None,
 ):
     """Manage a link farm: (un)install groups of links from "source packages"."""
     # Store options in context for access by commands
