@@ -331,6 +331,29 @@ Hooks include:
 
 Tests in `tests/test_cli.py` use `CliRunner` from `typer.testing` to perform integration testing of the CLI. These tests run the entire CLI app in-process, verifying that commands work end-to-end with real filesystem operations.
 
+### Clean Development Artifacts
+
+Remove build, test, and coverage artifacts:
+
+```bash
+# Preview what will be removed (dry run)
+git clean -fdxn
+
+# Remove all development artifacts
+git clean -fdx
+```
+
+This removes:
+- `.venv/` - Virtual environment
+- `.coverage` - Coverage data file
+- `htmlcov/` - HTML coverage reports
+- `.pytest_cache/` - Pytest cache
+- `__pycache__/` - Python bytecode cache
+- `*.egg-info/` - Package metadata
+- `dist/` - Build distributions
+
+**Note:** Add `.` at the end (`git clean -fdx .`) to limit cleanup to the current directory only.
+
 ### What's next
 
 Potential future enhancements:
