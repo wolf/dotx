@@ -5,15 +5,15 @@ description = "A command-line tool to install a link-farm to your dotfiles"
 authors = [
     { name = "Wolf", email = "Wolf@zv.cx" }
 ]
-license = { file = "LICENSE" }
+license = "MIT"
+license-files = ["LICENSE"]
 readme = "README.md"
 requires-python = ">=3.13"
 keywords = ["dotfiles", "symlinks", "configuration", "link-farm"]
 classifiers = [
-    "Development Status :: 4 - Beta",
+    "Development Status :: 5 - Production/Stable",
     "Environment :: Console",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.13",
