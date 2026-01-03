@@ -8,12 +8,32 @@ authors = [
 license = { file = "LICENSE" }
 readme = "README.md"
 requires-python = ">=3.13"
+keywords = ["dotfiles", "symlinks", "configuration", "link-farm"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: System :: Systems Administration",
+    "Topic :: Utilities",
+]
 dependencies = [
     "click>=8.1.7",
     "loguru>=0.7.0",
     "pathspec>=0.12.1",
     "typer>=0.15.1",
 ]
+
+[project.urls]
+Homepage = "https://github.com/wolf/dotx"
+Repository = "https://github.com/wolf/dotx"
+Issues = "https://github.com/wolf/dotx/issues"
+
+[project.scripts]
+dotx = "dotx.cli:cli"
 
 [dependency-groups]
 dev = [
