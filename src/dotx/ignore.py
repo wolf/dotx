@@ -12,7 +12,6 @@ Exported class:
 """
 
 from pathlib import Path
-from typing import Dict, Optional
 
 import pathspec
 from loguru import logger
@@ -33,11 +32,9 @@ class IgnoreRules:
     """
 
     def __init__(self):
-        """
-        Initialize IgnoreRules with global ignore file.
-        """
-        self.global_spec: Optional[pathspec.PathSpec] = None
-        self.dir_specs: Dict[Path, Optional[pathspec.PathSpec]] = {}
+        """Initialize IgnoreRules and load global ignore file if it exists."""
+        self.global_spec: pathspec.PathSpec | None = None
+        self.dir_specs: dict[Path, pathspec.PathSpec | None] = {}
 
         # Load global ignore file if it exists
         global_ignore_path = Path.home() / ".config" / "dotx" / "ignore"
@@ -46,15 +43,12 @@ class IgnoreRules:
             if self.global_spec:
                 logger.info(f"Loaded global ignore file from {global_ignore_path}")
 
-    def _load_ignore_file(self, ignore_file: Path) -> Optional[pathspec.PathSpec]:
+    def _load_ignore_file(self, ignore_file: Path) -> pathspec.PathSpec | None:
         """
         Load and parse a .dotxignore file.
 
         Reads the file and creates a PathSpec object for pattern matching.
         Handles comments (lines starting with #) and empty lines.
-
-        Returns:
-            PathSpec object if file contains patterns, None otherwise
         """
         try:
             with open(ignore_file, "r") as f:
@@ -77,15 +71,12 @@ class IgnoreRules:
             logger.warning(f"Failed to load ignore file {ignore_file}: {e}")
             return None
 
-    def load_ignore_file(self, directory: Path) -> Optional[pathspec.PathSpec]:
+    def load_ignore_file(self, directory: Path) -> pathspec.PathSpec | None:
         """
         Load .dotxignore file from directory and cache it.
 
         Checks if directory has a .dotxignore file, loads it, and caches
         the PathSpec for future use.
-
-        Returns:
-            PathSpec object if .dotxignore exists and has patterns, None otherwise
         """
         # Check cache first
         if directory in self.dir_specs:
@@ -108,18 +99,12 @@ class IgnoreRules:
 
     def get_effective_spec(
         self, path: Path, relative_to: Path
-    ) -> Optional[pathspec.PathSpec]:
+    ) -> pathspec.PathSpec | None:
         """
         Get the effective PathSpec for a path considering all ignore files.
 
-        Combines patterns from:
-        - .dotxignore files from relative_to up to path's parent
-        - Global ignore file
-
-        The closer ignore files take precedence over global ignore.
-
-        Returns:
-            Combined PathSpec or None if no ignore rules apply
+        Combines patterns from .dotxignore files from relative_to up to path's parent,
+        plus the global ignore file. Closer ignore files take precedence over global ignore.
         """
         specs = []
 
@@ -173,9 +158,6 @@ class IgnoreRules:
 
         Checks the path against all applicable ignore rules considering
         precedence of .dotxignore files.
-
-        Returns:
-            True if path should be ignored, False otherwise
         """
         # Get the effective spec for this path
         spec = self.get_effective_spec(path, relative_to)
@@ -212,15 +194,10 @@ class IgnoreRules:
         """
         Filter directories to remove ignored ones.
 
-        Designed for use with os.walk() in top-down mode. Returns a filtered
-        list of directory names that are not ignored.
+        Designed for use with os.walk() in top-down mode. Can be assigned back
+        to the dirnames list in os.walk to prevent descending into ignored directories:
 
-        This can be assigned back to the dirnames list in os.walk to prevent
-        descending into ignored directories:
             dirnames[:] = ignore_rules.prune_directories(root, dirnames, package_root)
-
-        Returns:
-            List of directory names that should not be ignored
         """
         return [
             dirname

@@ -13,7 +13,6 @@ import os
 import sqlite3
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 from loguru import logger
 
@@ -82,13 +81,12 @@ class InstallationDB:
         metadata: Key-value store for database metadata
     """
 
-    def __init__(self, db_path: Optional[Path] = None):
+    def __init__(self, db_path: Path | None = None):
         """
         Initialize database connection.
 
-        Args:
-            db_path: Path to database file. Defaults to $XDG_CONFIG_HOME/dotx/installed.db
-                     (or ~/.config/dotx/installed.db if XDG_CONFIG_HOME is not set)
+        Uses XDG_CONFIG_HOME/dotx/installed.db if db_path is not provided
+        (or ~/.config/dotx/installed.db if XDG_CONFIG_HOME is not set).
         """
         if db_path is None:
             # Respect XDG Base Directory specification
@@ -100,7 +98,7 @@ class InstallationDB:
             db_path = config_dir / "dotx" / "installed.db"
 
         self.db_path = db_path
-        self.conn: Optional[sqlite3.Connection] = None
+        self.conn: sqlite3.Connection | None = None
 
     def __enter__(self):
         """
@@ -126,7 +124,7 @@ class InstallationDB:
         """
         Context manager exit: commit and close database connection.
 
-        Commits transaction if no exception, rolls back otherwise.
+        Commits transaction on success, rolls back on exception.
         """
         if self.conn:
             if exc_type is None:
@@ -142,7 +140,7 @@ class InstallationDB:
         """
         Create database schema if it doesn't exist.
 
-        Loads schema from installed-schema.sql file.
+        Loads and executes schema from installed-schema.sql file.
         """
         if not self.conn:
             raise RuntimeError("Database not connected")
@@ -163,10 +161,8 @@ class InstallationDB:
         """
         Record an installation in the database.
 
-        Args:
-            package_name: Absolute path to source package
-            target_path: Absolute path to installed file/directory
-            link_type: Type of installation ('file', 'directory', 'created_dir')
+        The link_type should be 'file', 'directory', or 'created_dir'.
+        Both paths are resolved to absolute paths before storage.
         """
         if not self.conn:
             raise RuntimeError("Database not connected")
@@ -197,8 +193,7 @@ class InstallationDB:
         """
         Remove an installation record from the database.
 
-        Args:
-            target_path: Absolute path to installed file/directory
+        Path is resolved to absolute path before lookup.
         """
         if not self.conn:
             raise RuntimeError("Database not connected")
@@ -217,18 +212,10 @@ class InstallationDB:
 
     def get_installations(self, package_name: Path) -> list[dict]:
         """
-        Get all installations for a package.
+        Get all installations for a package, ordered by target path.
 
-        Args:
-            package_name: Absolute path to source package
-
-        Returns:
-            List of installation records as dictionaries with keys:
-                - id: Database ID
-                - package_name: Source package path
-                - target_path: Installed file path
-                - link_type: Type of installation
-                - installed_at: Installation timestamp
+        Each installation record is a dict with keys: id, package_name,
+        target_path, link_type, and installed_at.
         """
         if not self.conn:
             raise RuntimeError("Database not connected")
@@ -244,13 +231,10 @@ class InstallationDB:
 
     def get_all_packages(self) -> list[dict]:
         """
-        Get all packages with installation counts.
+        Get all packages with installation counts, ordered by package name.
 
-        Returns:
-            List of dictionaries with keys:
-                - package_name: Source package path
-                - file_count: Number of files installed
-                - latest_install: Most recent installation timestamp
+        Each package record is a dict with keys: package_name, file_count,
+        and latest_install timestamp.
         """
         if not self.conn:
             raise RuntimeError("Database not connected")
@@ -271,16 +255,8 @@ class InstallationDB:
         """
         Verify installations for a package against filesystem.
 
-        Checks if database records match actual filesystem state.
-
-        Args:
-            package_name: Absolute path to source package
-
-        Returns:
-            List of issues found, each a dict with keys:
-                - target_path: Path that has an issue
-                - issue: Description of the problem
-                - link_type: Expected link type
+        Checks if database records match actual filesystem state. Each issue
+        is a dict with keys: target_path, issue (description), and link_type.
         """
         if not self.conn:
             raise RuntimeError("Database not connected")
@@ -323,11 +299,7 @@ class InstallationDB:
         """
         Find database entries whose targets don't exist on filesystem.
 
-        Args:
-            package_name: Absolute path to source package
-
-        Returns:
-            List of orphaned installation records
+        Returns orphaned installation records (target files/directories are missing).
         """
         installations = self.get_installations(package_name)
         orphaned = []
@@ -341,13 +313,9 @@ class InstallationDB:
 
     def clean_orphaned_entries(self, package_name: Path) -> int:
         """
-        Remove database entries whose targets don't exist.
+        Remove database entries whose targets don't exist on filesystem.
 
-        Args:
-            package_name: Absolute path to source package
-
-        Returns:
-            Number of entries removed
+        Logs each removed entry and returns count of entries removed.
         """
         orphaned = self.get_orphaned_entries(package_name)
 
@@ -359,13 +327,7 @@ class InstallationDB:
 
     def package_exists(self, package_name: Path) -> bool:
         """
-        Check if a package has any installations recorded.
-
-        Args:
-            package_name: Absolute path to source package
-
-        Returns:
-            True if package has installations, False otherwise
+        Check if a package has any installations recorded in the database.
         """
         if not self.conn:
             raise RuntimeError("Database not connected")

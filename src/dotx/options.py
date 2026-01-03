@@ -7,7 +7,13 @@ from typing import Any
 import click
 
 
-def set_option(option: str, value, ctx=None) -> bool:
+def set_option(option: str, value: Any, ctx: click.Context | None = None) -> bool:
+    """
+    Set an option value in the Click context.
+
+    Stores arbitrary values in the context object dictionary for later retrieval.
+    Creates the context.obj dictionary if it doesn't exist.
+    """
     if ctx is None:
         ctx = click.get_current_context()
     if ctx is not None:
@@ -18,8 +24,13 @@ def set_option(option: str, value, ctx=None) -> bool:
     return False
 
 
-def get_option(option: str, default_for_option: Any = None, ctx=None) -> Any:
-    # TODO: annotate the right return type.  Is it bool?  Is it typing.Any?  Do I have to check?
+def get_option(option: str, default_for_option: Any = None, ctx: click.Context | None = None) -> Any:
+    """
+    Get an option value from the Click context.
+
+    Return type is Any because it depends on what option is requested.
+    Returns the default_for_option if the option is not found.
+    """
     if ctx is None:
         ctx = click.get_current_context()
     if ctx is not None and ctx.obj is not None and option in ctx.obj:
@@ -27,13 +38,16 @@ def get_option(option: str, default_for_option: Any = None, ctx=None) -> Any:
     return default_for_option
 
 
-def is_verbose_mode(ctx=None) -> bool:
+def is_verbose_mode(ctx: click.Context | None = None) -> bool:
+    """Check if verbose mode is enabled."""
     return get_option("VERBOSE", False, ctx)
 
 
-def is_debug_mode(ctx=None) -> bool:
+def is_debug_mode(ctx: click.Context | None = None) -> bool:
+    """Check if debug mode is enabled."""
     return get_option("DEBUG", False, ctx)
 
 
-def is_dry_run(ctx=None) -> bool:
+def is_dry_run(ctx: click.Context | None = None) -> bool:
+    """Check if dry-run mode is enabled."""
     return get_option("DRYRUN", True, ctx)
