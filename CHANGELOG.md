@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.2.1] - 2026-01-03
+
+### Fixed
+- **Critical bug**: `.dotxignore` files now properly combine patterns from all hierarchy levels (global → parents → closest) instead of only using the closest file. This fixes nested `.dotxignore` files not working correctly and enables proper pattern overriding with negation patterns (`!pattern`).
+
 ## [2.2.0] - 2026-01-03
 
 ### Added
@@ -109,7 +114,8 @@ EOF
 dotx install bash
 ```
 
-[Unreleased]: https://github.com/wolf/dotx/compare/v2.2.0...HEAD
+[Unreleased]: https://github.com/wolf/dotx/compare/v2.2.1...HEAD
+[2.2.1]: https://github.com/wolf/dotx/compare/v2.2.0...v2.2.1
 [2.2.0]: https://github.com/wolf/dotx/compare/v2.1.0...v2.2.0
 [2.1.0]: https://github.com/wolf/dotx/compare/v2.0.4...v2.1.0
 [2.0.4]: https://github.com/wolf/dotx/compare/v2.0.3...v2.0.4
