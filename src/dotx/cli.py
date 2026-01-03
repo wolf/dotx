@@ -1,116 +1,127 @@
 """
 Command-line interface for dotx.
 
-This module defines the CLI commands for managing dotfile installations using Click.
+This module defines the CLI commands for managing dotfile installations using Typer.
 The main commands are:
 - install: Create symlinks from source packages to target directory
 - uninstall: Remove symlinks for source packages
 - list: Show all installed packages
 - verify: Check installation integrity
 - show: Display detailed package information
-- sync: Rebuild database from filesystem (placeholder)
+- sync: Rebuild database from filesystem
 
 Each command supports common options like --debug, --verbose, --dry-run, and --target.
 The installation database tracks which packages have installed which files.
 """
 
-import pathlib
 import sys
+from pathlib import Path
+from typing import Annotated, Optional
 
 import click
+import typer
 from loguru import logger
 
 from dotx.database import InstallationDB
 from dotx.install import plan_install
-from dotx.uninstall import plan_uninstall
-from dotx.options import get_option
+from dotx.options import set_option
 from dotx.plan import Action, Plan, execute_plan, extract_plan, log_extracted_plan
+from dotx.uninstall import plan_uninstall
+
+# Create the Typer app
+app = typer.Typer(
+    help="Manage a link farm: (un)install groups of links from source packages."
+)
 
 
-@click.group()
-@click.option("--debug/--no-debug", default=False)
-@click.option("--verbose/--quiet", default=False)
-@click.option(
-    "--log",
-    type=click.Path(
-        exists=False,
-        file_okay=True,
-        dir_okay=False,
-        writable=True,
-        readable=True,
-        path_type=pathlib.Path,
-    ),
-    help="Where to write the log (defaults to stderr)",
-)
-@click.option(
-    "--target",
-    envvar="HOME",
-    type=click.Path(
-        exists=True,
-        file_okay=False,
-        dir_okay=True,
-        writable=True,
-        readable=True,
-        path_type=pathlib.Path,
-    ),
-    help="Where to install (defaults to $HOME)",
-)
-@click.option(
-    "--dry-run/--no-dry-run",
-    default=False,
-    help="Just echo; don't actually (un)install.",
-)
-@click.pass_context
-def cli(
-    ctx: click.Context,
-    debug: bool,
-    verbose: bool,
-    log: pathlib.Path,
-    target: pathlib.Path,
-    dry_run: bool,
-):
-    """Manage a link farm: (un)install groups of links from "source packages"."""
-    ctx.obj = {
-        "DEBUG": debug,
-        "VERBOSE": verbose,
-        "TARGET": target,
-        "DRYRUN": dry_run,
-    }
-
-    # Configure loguru
+def configure_logging(debug: bool, verbose: bool, log: Optional[Path]):
+    """Configure loguru logging based on command-line options."""
     logger.remove()  # Remove default handler
     log_level = "DEBUG" if debug else "WARNING"
 
     if log is None:
-        logger.add(sys.stderr, level=log_level, format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {message}")
+        logger.add(
+            sys.stderr,
+            level=log_level,
+            format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {message}",
+        )
     else:
-        logger.add(log, level=log_level, format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {message}")
+        logger.add(
+            log,
+            level=log_level,
+            format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {message}",
+        )
 
-    logger.info(ctx.obj)
+
+@app.callback()
+def main(
+    ctx: click.Context,
+    debug: Annotated[bool, typer.Option("--debug/--no-debug")] = False,
+    verbose: Annotated[bool, typer.Option("--verbose/--quiet")] = False,
+    log: Annotated[
+        Optional[Path],
+        typer.Option(
+            help="Where to write the log (defaults to stderr)",
+            exists=False,
+            file_okay=True,
+            dir_okay=False,
+            writable=True,
+            readable=True,
+        ),
+    ] = None,
+    target: Annotated[
+        Path,
+        typer.Option(
+            envvar="HOME",
+            help="Where to install (defaults to $HOME)",
+            exists=True,
+            file_okay=False,
+            dir_okay=True,
+            writable=True,
+            readable=True,
+        ),
+    ] = Path.home(),
+    dry_run: Annotated[
+        bool, typer.Option("--dry-run/--no-dry-run", help="Just echo; don't actually (un)install.")
+    ] = False,
+):
+    """Manage a link farm: (un)install groups of links from "source packages"."""
+    # Store options in context for access by commands
+    set_option("DEBUG", debug, ctx)
+    set_option("VERBOSE", verbose, ctx)
+    set_option("TARGET", target, ctx)
+    set_option("DRYRUN", dry_run, ctx)
+
+    # Configure logging
+    configure_logging(debug, verbose, log)
+
+    logger.info(f"Options: debug={debug}, verbose={verbose}, target={target}, dry_run={dry_run}")
 
 
-@cli.command()
-@click.argument(
-    "sources",
-    nargs=-1,
-    type=click.Path(
-        exists=True,
-        file_okay=False,
-        dir_okay=True,
-        readable=True,
-        path_type=pathlib.Path,
-    ),
-)
-@click.pass_context
-def install(ctx, sources):
-    """install [source-package...]"""
+@app.command()
+def install(
+    ctx: click.Context,
+    sources: Annotated[
+        list[Path],
+        typer.Argument(
+            help="Source package directories to install",
+            exists=True,
+            file_okay=False,
+            dir_okay=True,
+            readable=True,
+        ),
+    ],
+):
+    """Install source packages to target directory."""
     logger.info("install starting")
-    destination_root = pathlib.Path(get_option("TARGET"))
+
+    # Get target from options
+    target_path = Path(ctx.obj.get("TARGET", Path.home())) if ctx.obj else Path.home()
 
     if sources:
-        plans: list[tuple[pathlib.Path, Plan]] = []
+        plans: list[tuple[Path, Plan]] = []
         for source_package in sources:
-            plan: Plan = plan_install(source_package, destination_root)
+            plan: Plan = plan_install(source_package, target_path)
             log_extracted_plan(
                 plan,
                 description=f"Actual plan to install {source_package}",
@@ -123,47 +134,48 @@ def install(ctx, sources):
             failures = extract_plan(plan, {Action.FAIL})
             if failures:
                 can_install = False
-                click.echo(
+                typer.echo(
                     f"Error: can't install {source_package} because it would overwrite:"
                 )
                 for plan_node in failures:
-                    click.echo(
-                        f"{destination_root / plan_node.relative_destination_path}"
-                    )
-                click.echo()
+                    typer.echo(f"{target_path / plan_node.relative_destination_path}")
+                typer.echo()
 
         if can_install:
             # Open database and execute all plans
             with InstallationDB() as db:
                 for source_package, plan in plans:
-                    execute_plan(source_package, destination_root, plan, db)
+                    execute_plan(source_package, target_path, plan, db)
         else:
-            click.echo("Refusing to install anything because of previous failures.")
+            typer.echo("Refusing to install anything because of previous failures.")
+
     logger.info("install finished")
 
 
-@cli.command()
-@click.argument(
-    "sources",
-    nargs=-1,
-    type=click.Path(
-        exists=True,
-        file_okay=False,
-        dir_okay=True,
-        readable=True,
-        path_type=pathlib.Path,
-    ),
-)
-@click.pass_context
-def uninstall(ctx, sources):
-    """uninstall [source-package...]"""
+@app.command()
+def uninstall(
+    ctx: click.Context,
+    sources: Annotated[
+        list[Path],
+        typer.Argument(
+            help="Source package directories to uninstall",
+            exists=True,
+            file_okay=False,
+            dir_okay=True,
+            readable=True,
+        ),
+    ],
+):
+    """Uninstall source packages from target directory."""
     logger.info("uninstall starting")
-    destination_root = pathlib.Path(get_option("TARGET"))
+
+    # Get target from options
+    target_path = Path(ctx.obj.get("TARGET", Path.home())) if ctx.obj else Path.home()
 
     if sources:
-        plans: list[tuple[pathlib.Path, Plan]] = []
+        plans: list[tuple[Path, Plan]] = []
         for source_package in sources:
-            plan: Plan = plan_uninstall(source_package, destination_root)
+            plan: Plan = plan_uninstall(source_package, target_path)
             log_extracted_plan(
                 plan,
                 description=f"Actual plan to uninstall {source_package}",
@@ -174,17 +186,18 @@ def uninstall(ctx, sources):
         # Open database and execute all plans
         with InstallationDB() as db:
             for source_package, plan in plans:
-                execute_plan(source_package, destination_root, plan, db)
+                execute_plan(source_package, target_path, plan, db)
+
     logger.info("uninstall finished")
 
 
-@cli.command(name="list")
-@click.option(
-    "--as-commands",
-    is_flag=True,
-    help="Output as reinstall commands instead of table",
-)
-def list_installed(as_commands):
+@app.command(name="list")
+def list_installed(
+    as_commands: Annotated[
+        bool,
+        typer.Option("--as-commands", help="Output as reinstall commands instead of table"),
+    ] = False,
+):
     """List all installed packages."""
     logger.info("list starting")
 
@@ -192,43 +205,47 @@ def list_installed(as_commands):
         packages = db.get_all_packages()
 
         if not packages:
-            click.echo("No packages installed.")
+            typer.echo("No packages installed.")
             return
 
         if as_commands:
             # Output as dotx install commands
             for pkg in packages:
-                click.echo(f"dotx install {pkg['package_name']}")
+                typer.echo(f"dotx install {pkg['package_name']}")
         else:
             # Output as table
-            click.echo("\nInstalled Packages:")
-            click.echo("-" * 80)
-            click.echo(f"{'Package':<50} {'Files':<10} {'Last Install':<20}")
-            click.echo("-" * 80)
+            typer.echo("\nInstalled Packages:")
+            typer.echo("-" * 80)
+            typer.echo(f"{'Package':<50} {'Files':<10} {'Last Install':<20}")
+            typer.echo("-" * 80)
             for pkg in packages:
-                package_name = pathlib.Path(pkg["package_name"]).name
+                package_name = Path(pkg["package_name"]).name
                 file_count = pkg["file_count"]
-                latest = pkg["latest_install"][:19] if pkg["latest_install"] else "unknown"
-                click.echo(f"{package_name:<50} {file_count:<10} {latest:<20}")
-            click.echo("-" * 80)
-            click.echo(f"Total: {len(packages)} package(s)\n")
+                latest = (
+                    pkg["latest_install"][:19]
+                    if pkg["latest_install"]
+                    else "unknown"
+                )
+                typer.echo(f"{package_name:<50} {file_count:<10} {latest:<20}")
+            typer.echo("-" * 80)
+            typer.echo(f"Total: {len(packages)} package(s)\n")
 
     logger.info("list finished")
 
 
-@cli.command()
-@click.argument(
-    "package",
-    required=False,
-    type=click.Path(
-        exists=True,
-        file_okay=False,
-        dir_okay=True,
-        readable=True,
-        path_type=pathlib.Path,
-    ),
-)
-def verify(package):
+@app.command()
+def verify(
+    package: Annotated[
+        Optional[Path],
+        typer.Argument(
+            help="Package to verify (all packages if not specified)",
+            exists=True,
+            file_okay=False,
+            dir_okay=True,
+            readable=True,
+        ),
+    ] = None,
+):
     """Verify installations against filesystem."""
     logger.info("verify starting")
 
@@ -239,43 +256,46 @@ def verify(package):
         else:
             # Verify all packages
             all_packages = db.get_all_packages()
-            packages_to_verify = [pathlib.Path(pkg["package_name"]) for pkg in all_packages]
+            packages_to_verify = [
+                Path(pkg["package_name"]) for pkg in all_packages
+            ]
 
         if not packages_to_verify:
-            click.echo("No packages to verify.")
+            typer.echo("No packages to verify.")
             return
 
         total_issues = 0
         for pkg in packages_to_verify:
             issues = db.verify_installations(pkg)
             if issues:
-                click.echo(f"\n{pkg}:")
+                typer.echo(f"\n{pkg}:")
                 for issue in issues:
-                    click.echo(f"  {issue['target_path']}")
-                    click.echo(f"    Issue: {issue['issue']}")
-                    click.echo(f"    Expected type: {issue['link_type']}")
+                    typer.echo(f"  {issue['target_path']}")
+                    typer.echo(f"    Issue: {issue['issue']}")
+                    typer.echo(f"    Expected type: {issue['link_type']}")
                 total_issues += len(issues)
 
         if total_issues == 0:
-            click.echo("✓ All installations verified successfully.")
+            typer.echo("✓ All installations verified successfully.")
         else:
-            click.echo(f"\n⚠ Found {total_issues} issue(s).")
+            typer.echo(f"\n⚠ Found {total_issues} issue(s).")
 
     logger.info("verify finished")
 
 
-@cli.command()
-@click.argument(
-    "package",
-    type=click.Path(
-        exists=True,
-        file_okay=False,
-        dir_okay=True,
-        readable=True,
-        path_type=pathlib.Path,
-    ),
-)
-def show(package):
+@app.command()
+def show(
+    package: Annotated[
+        Path,
+        typer.Argument(
+            help="Package to show details for",
+            exists=True,
+            file_okay=False,
+            dir_okay=True,
+            readable=True,
+        ),
+    ],
+):
     """Show detailed installation information for a package."""
     logger.info("show starting")
 
@@ -283,39 +303,41 @@ def show(package):
         installations = db.get_installations(package)
 
         if not installations:
-            click.echo(f"No installations found for {package}")
+            typer.echo(f"No installations found for {package}")
             return
 
-        click.echo(f"\nPackage: {package}")
-        click.echo(f"Installed files: {len(installations)}")
-        click.echo("\nInstallations:")
-        click.echo("-" * 80)
+        typer.echo(f"\nPackage: {package}")
+        typer.echo(f"Installed files: {len(installations)}")
+        typer.echo("\nInstallations:")
+        typer.echo("-" * 80)
 
         for install in installations:
-            click.echo(f"\n  Target: {install['target_path']}")
-            click.echo(f"  Type:   {install['link_type']}")
-            click.echo(f"  When:   {install['installed_at']}")
+            typer.echo(f"\n  Target: {install['target_path']}")
+            typer.echo(f"  Type:   {install['link_type']}")
+            typer.echo(f"  When:   {install['installed_at']}")
 
-        click.echo("-" * 80)
+        typer.echo("-" * 80)
 
     logger.info("show finished")
 
 
-@cli.command()
-@click.option(
-    "--dry-run",
-    is_flag=True,
-    help="Show what would be added without modifying the database",
-)
-def sync(dry_run):
+@app.command()
+def sync(
+    ctx: click.Context,
+    dry_run: Annotated[
+        bool,
+        typer.Option("--dry-run", help="Show what would be added without modifying the database"),
+    ] = False,
+):
     """Rebuild database from filesystem (scan for existing symlinks)."""
     logger.info("sync starting")
 
-    destination_root = pathlib.Path(get_option("TARGET"))
+    # Get target from options
+    target_path = Path(ctx.obj.get("TARGET", Path.home())) if ctx.obj else Path.home()
 
     # Scan filesystem for symlinks
     symlinks = []
-    for root, dirs, files in destination_root.walk():
+    for root, dirs, files in target_path.walk():
         # Check if directories are symlinks
         for dirname in dirs[:]:
             dirpath = root / dirname
@@ -331,11 +353,11 @@ def sync(dry_run):
                 symlinks.append((filepath, False))  # (path, is_dir)
 
     if not symlinks:
-        click.echo("No symlinks found in target directory.")
+        typer.echo("No symlinks found in target directory.")
         logger.info("sync finished - no symlinks found")
         return
 
-    click.echo(f"Found {len(symlinks)} symlink(s) in {destination_root}")
+    typer.echo(f"Found {len(symlinks)} symlink(s) in {target_path}")
 
     # Group symlinks by their resolved source parent directory (package)
     packages = {}
@@ -361,23 +383,23 @@ def sync(dry_run):
             unknown.append((link_path, None, is_dir))
 
     # Show what was found
-    click.echo(f"\nDiscovered {len(packages)} potential package(s):")
+    typer.echo(f"\nDiscovered {len(packages)} potential package(s):")
     for package_root, links in packages.items():
-        click.echo(f"\n  {package_root}")
-        click.echo(f"    {len(links)} symlink(s)")
+        typer.echo(f"\n  {package_root}")
+        typer.echo(f"    {len(links)} symlink(s)")
 
     if unknown:
-        click.echo(f"\n  Unknown/broken: {len(unknown)} symlink(s)")
+        typer.echo(f"\n  Unknown/broken: {len(unknown)} symlink(s)")
 
     if dry_run:
-        click.echo("\nDry run - no database changes made.")
+        typer.echo("\nDry run - no database changes made.")
         logger.info("sync finished - dry run")
         return
 
     # Ask for confirmation
-    click.echo("\nThis will rebuild the database with the discovered installations.")
-    if not click.confirm("Continue?"):
-        click.echo("Cancelled.")
+    typer.echo("\nThis will rebuild the database with the discovered installations.")
+    if not typer.confirm("Continue?"):
+        typer.echo("Cancelled.")
         logger.info("sync finished - cancelled by user")
         return
 
@@ -398,6 +420,11 @@ def sync(dry_run):
                 total_recorded += 1
                 logger.debug(f"Recorded {link_path} -> {package_root}")
 
-        click.echo(f"\n✓ Recorded {total_recorded} installation(s) in database.")
+        typer.echo(f"\n✓ Recorded {total_recorded} installation(s) in database.")
 
     logger.info("sync finished")
+
+
+def cli():
+    """Entry point for the CLI."""
+    app()

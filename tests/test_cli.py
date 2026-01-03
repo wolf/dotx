@@ -2,9 +2,9 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 import pytest
-from click.testing import CliRunner
+from typer.testing import CliRunner
 
-from dotx.cli import cli
+from dotx.cli import app
 
 
 def test_install_normal_file():
@@ -14,7 +14,7 @@ def test_install_normal_file():
         (source_package_root_path / file_path).touch()
 
         runner = CliRunner()
-        result = runner.invoke(cli, f"--dry-run install {source_package_root}")
+        result = runner.invoke(app, ["--dry-run", "install", source_package_root])
 
         print()
         print(result.output)
@@ -22,9 +22,9 @@ def test_install_normal_file():
         assert "can't install" not in result.output
 
 
-@pytest.mark.skip("Click isn't doing the right thing here.")
+@pytest.mark.skip("Typer testing - needs investigation.")
 def test_options_functions():
     runner = CliRunner()
-    result = runner.invoke(cli, "--verbose --debug --dry-run debug")
+    result = runner.invoke(app, ["--verbose", "--debug", "--dry-run", "debug"])
 
     assert len(result.output) == 0
