@@ -27,10 +27,15 @@ Exported functions:
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from loguru import logger
 
+from dotx.database import NoOpDB
 from dotx.options import is_dry_run
+
+if TYPE_CHECKING:
+    from dotx.database import InstallationDB
 
 
 class Action(Enum):
@@ -84,14 +89,23 @@ class PlanNode:
 Plan = dict[Path, PlanNode]
 
 
-def execute_plan(source_package_root: Path, destination_root: Path, plan: Plan):
+def execute_plan(
+    source_package_root: Path,
+    destination_root: Path,
+    plan: Plan,
+    db: "InstallationDB | NoOpDB | None" = None,
+):
     """
     Create, link, or unlink files and directories as indicated by the supplied `plan`.
 
     This function is used to actually make an install or an uninstall happen.  If this is a dry-run,
     then just print the shell commands it would take to do the install or uninstall.  Otherwise,
     actually create, link, or unlink actual files using `pathlib` native functions.
+
+    If a database is provided, records installations (CREATE, LINK) and removals (UNLINK).
     """
+    # Use NoOpDB if no database provided
+    working_db = db if db is not None else NoOpDB()
 
     def build_shell_command(step: PlanNode):
         """Print the shell command corresponding to exactly one `PlanNode`"""
@@ -115,7 +129,11 @@ def execute_plan(source_package_root: Path, destination_root: Path, plan: Plan):
         return command
 
     def execute_plan_step(step: PlanNode):
-        """Make the change specified by a single `PlanNode` happen using `pathlib` functions"""
+        """
+        Make the change specified by a single `PlanNode` happen using `pathlib` functions.
+
+        Records installations and removals in database.
+        """
         destination = destination_root / step.relative_destination_path
         source = (source_package_root / step.relative_source_path).resolve()
         try:
@@ -126,10 +144,21 @@ def execute_plan(source_package_root: Path, destination_root: Path, plan: Plan):
         match step.action:
             case Action.CREATE:
                 destination.mkdir()
+                # Record directory creation in database
+                working_db.record_installation(
+                    source_package_root, destination, "created_dir"
+                )
             case Action.LINK:
                 destination.symlink_to(source, step.is_dir)
+                # Record symlink in database
+                link_type = "directory" if step.is_dir else "file"
+                working_db.record_installation(
+                    source_package_root, destination, link_type
+                )
             case Action.UNLINK if destination.is_symlink():
                 destination.unlink()
+                # Remove from database
+                working_db.remove_installation(destination)
             case _:
                 logger.critical(f"Bad step: {step}")
                 exit(2)

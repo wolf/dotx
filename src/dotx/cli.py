@@ -7,6 +7,7 @@ import sys
 import click
 from loguru import logger
 
+from dotx.database import InstallationDB
 from dotx.install import plan_install
 from dotx.uninstall import plan_uninstall
 from dotx.options import get_option
@@ -119,8 +120,10 @@ def install(ctx, sources):
                 click.echo()
 
         if can_install:
-            for source_package, plan in plans:
-                execute_plan(source_package, destination_root, plan)
+            # Open database and execute all plans
+            with InstallationDB() as db:
+                for source_package, plan in plans:
+                    execute_plan(source_package, destination_root, plan, db)
         else:
             click.echo("Refusing to install anything because of previous failures.")
     logger.info("install finished")
@@ -155,6 +158,145 @@ def uninstall(ctx, sources):
             )
             plans.append((source_package, plan))
 
-        for source_package, plan in plans:
-            execute_plan(source_package, destination_root, plan)
+        # Open database and execute all plans
+        with InstallationDB() as db:
+            for source_package, plan in plans:
+                execute_plan(source_package, destination_root, plan, db)
     logger.info("uninstall finished")
+
+
+@cli.command(name="list")
+@click.option(
+    "--as-commands",
+    is_flag=True,
+    help="Output as reinstall commands instead of table",
+)
+def list_installed(as_commands):
+    """List all installed packages."""
+    logger.info("list starting")
+
+    with InstallationDB() as db:
+        packages = db.get_all_packages()
+
+        if not packages:
+            click.echo("No packages installed.")
+            return
+
+        if as_commands:
+            # Output as dotx install commands
+            for pkg in packages:
+                click.echo(f"dotx install {pkg['package_name']}")
+        else:
+            # Output as table
+            click.echo("\nInstalled Packages:")
+            click.echo("-" * 80)
+            click.echo(f"{'Package':<50} {'Files':<10} {'Last Install':<20}")
+            click.echo("-" * 80)
+            for pkg in packages:
+                package_name = pathlib.Path(pkg["package_name"]).name
+                file_count = pkg["file_count"]
+                latest = pkg["latest_install"][:19] if pkg["latest_install"] else "unknown"
+                click.echo(f"{package_name:<50} {file_count:<10} {latest:<20}")
+            click.echo("-" * 80)
+            click.echo(f"Total: {len(packages)} package(s)\n")
+
+    logger.info("list finished")
+
+
+@cli.command()
+@click.argument(
+    "package",
+    required=False,
+    type=click.Path(
+        exists=True,
+        file_okay=False,
+        dir_okay=True,
+        readable=True,
+        path_type=pathlib.Path,
+    ),
+)
+def verify(package):
+    """Verify installations against filesystem."""
+    logger.info("verify starting")
+
+    with InstallationDB() as db:
+        if package:
+            # Verify specific package
+            packages_to_verify = [package]
+        else:
+            # Verify all packages
+            all_packages = db.get_all_packages()
+            packages_to_verify = [pathlib.Path(pkg["package_name"]) for pkg in all_packages]
+
+        if not packages_to_verify:
+            click.echo("No packages to verify.")
+            return
+
+        total_issues = 0
+        for pkg in packages_to_verify:
+            issues = db.verify_installations(pkg)
+            if issues:
+                click.echo(f"\n{pkg}:")
+                for issue in issues:
+                    click.echo(f"  {issue['target_path']}")
+                    click.echo(f"    Issue: {issue['issue']}")
+                    click.echo(f"    Expected type: {issue['link_type']}")
+                total_issues += len(issues)
+
+        if total_issues == 0:
+            click.echo("✓ All installations verified successfully.")
+        else:
+            click.echo(f"\n⚠ Found {total_issues} issue(s).")
+
+    logger.info("verify finished")
+
+
+@cli.command()
+@click.argument(
+    "package",
+    type=click.Path(
+        exists=True,
+        file_okay=False,
+        dir_okay=True,
+        readable=True,
+        path_type=pathlib.Path,
+    ),
+)
+def show(package):
+    """Show detailed installation information for a package."""
+    logger.info("show starting")
+
+    with InstallationDB() as db:
+        installations = db.get_installations(package)
+
+        if not installations:
+            click.echo(f"No installations found for {package}")
+            return
+
+        click.echo(f"\nPackage: {package}")
+        click.echo(f"Installed files: {len(installations)}")
+        click.echo("\nInstallations:")
+        click.echo("-" * 80)
+
+        for install in installations:
+            click.echo(f"\n  Target: {install['target_path']}")
+            click.echo(f"  Type:   {install['link_type']}")
+            click.echo(f"  When:   {install['installed_at']}")
+
+        click.echo("-" * 80)
+
+    logger.info("show finished")
+
+
+@cli.command()
+def sync():
+    """Rebuild database from filesystem (scan for existing symlinks)."""
+    logger.info("sync starting")
+
+    click.echo("⚠ The sync command is not yet implemented.")
+    click.echo("This would scan the filesystem for symlinks and rebuild the database.")
+    click.echo("For now, you can:")
+    click.echo("  1. Remove ~/.config/dotx/installed.db")
+    click.echo("  2. Reinstall your packages with 'dotx install'")
+
+    logger.info("sync finished")
