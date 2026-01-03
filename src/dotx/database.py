@@ -74,7 +74,7 @@ class InstallationDB:
     in the target directory. Supports context manager protocol for
     automatic transaction management.
 
-    Database location: ~/.config/dotx/installed.db
+    Database location: ~/.local/share/dotx/installed.db
 
     Schema:
         installations: Records of installed files/directories
@@ -85,17 +85,13 @@ class InstallationDB:
         """
         Initialize database connection.
 
-        Uses XDG_CONFIG_HOME/dotx/installed.db if db_path is not provided
-        (or ~/.config/dotx/installed.db if XDG_CONFIG_HOME is not set).
+        Uses XDG_DATA_HOME/dotx/installed.db if db_path is not provided
+        (or ~/.local/share/dotx/installed.db if XDG_DATA_HOME is not set).
         """
         if db_path is None:
             # Respect XDG Base Directory specification
-            config_home = os.environ.get("XDG_CONFIG_HOME")
-            if config_home:
-                config_dir = Path(config_home)
-            else:
-                config_dir = Path.home() / ".config"
-            db_path = config_dir / "dotx" / "installed.db"
+            data_home = os.environ.get("XDG_DATA_HOME", str(Path.home() / ".local" / "share"))
+            db_path = Path(data_home) / "dotx" / "installed.db"
 
         self.db_path = db_path
         self.conn: sqlite3.Connection | None = None
@@ -104,7 +100,7 @@ class InstallationDB:
         """
         Context manager entry: open database connection and initialize schema.
         """
-        # Ensure config directory exists
+        # Ensure data directory exists
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
 
         # Connect to database
@@ -141,32 +137,9 @@ class InstallationDB:
         Create database schema if it doesn't exist.
 
         Loads and executes schema from installed-schema.sql file.
-        Handles migration from old schema versions.
         """
         if not self.conn:
             raise RuntimeError("Database not connected")
-
-        # Check if this is an existing database with old schema
-        cursor = self.conn.execute(
-            "SELECT name FROM sqlite_master WHERE type='table' AND name='installations'"
-        )
-        existing_table = cursor.fetchone()
-
-        if existing_table:
-            # Check schema version
-            try:
-                cursor = self.conn.execute(
-                    "SELECT value FROM metadata WHERE key='schema_version'"
-                )
-                version_row = cursor.fetchone()
-                if version_row and version_row[0] == '1':
-                    # Old schema - need to migrate
-                    logger.warning("Detected old database schema (v1). Migrating to v2...")
-                    self._migrate_schema_v1_to_v2()
-                    return
-            except Exception:
-                # metadata table might not exist in very old versions
-                pass
 
         # Load schema from SQL file
         schema_path = Path(__file__).parent / "installed-schema.sql"
@@ -177,61 +150,6 @@ class InstallationDB:
         self.conn.commit()
 
         logger.debug("Database schema initialized")
-
-    def _migrate_schema_v1_to_v2(self):
-        """
-        Migrate database from schema v1 to v2.
-
-        v1: UNIQUE(package_name, target_path)
-        v2: UNIQUE(target_path)
-
-        Strategy: Recreate table with new schema, keeping most recent entry per target_path.
-        """
-        if not self.conn:
-            raise RuntimeError("Database not connected")
-
-        logger.info("Migrating database schema from v1 to v2")
-
-        # Create temporary table with new schema
-        self.conn.execute("""
-            CREATE TABLE installations_new (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                package_name TEXT NOT NULL,
-                target_path TEXT NOT NULL UNIQUE,
-                link_type TEXT NOT NULL,
-                installed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        """)
-
-        # Copy data, keeping only the most recent entry for each target_path
-        # (in case multiple packages claimed the same target)
-        self.conn.execute("""
-            INSERT INTO installations_new (package_name, target_path, link_type, installed_at)
-            SELECT package_name, target_path, link_type, installed_at
-            FROM installations
-            WHERE id IN (
-                SELECT MAX(id)
-                FROM installations
-                GROUP BY target_path
-            )
-        """)
-
-        # Drop old table and rename new one
-        self.conn.execute("DROP TABLE installations")
-        self.conn.execute("ALTER TABLE installations_new RENAME TO installations")
-
-        # Recreate indexes
-        self.conn.execute(
-            "CREATE INDEX IF NOT EXISTS idx_package_name ON installations(package_name)"
-        )
-
-        # Update schema version
-        self.conn.execute(
-            "UPDATE metadata SET value = '2' WHERE key = 'schema_version'"
-        )
-
-        self.conn.commit()
-        logger.info("Database migration completed successfully")
 
     def record_installation(
         self, package_name: Path, target_path: Path, link_type: str

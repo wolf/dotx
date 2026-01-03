@@ -1,8 +1,4 @@
 -- Database schema for dotx installation tracking
--- Version: 2
---
--- BREAKING CHANGE from v1: target_path is now unique (not package_name + target_path)
--- This reflects the reality that only one package can install a given file at a time.
 
 -- Track installed files and directories
 CREATE TABLE IF NOT EXISTS installations (
@@ -24,4 +20,4 @@ CREATE TABLE IF NOT EXISTS metadata (
 );
 
 -- Initialize schema version
-INSERT OR IGNORE INTO metadata (key, value) VALUES ('schema_version', '2');
+INSERT OR IGNORE INTO metadata (key, value) VALUES ('schema_version', '1');

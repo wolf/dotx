@@ -132,7 +132,7 @@ dotx uninstall bash vim tmux
 
 ### Installation Database
 
-`dotx` tracks all installations in a SQLite database at `~/.config/dotx/installed.db` (or `$XDG_CONFIG_HOME/dotx/installed.db`). This enables better package management and verification.
+`dotx` tracks all installations in a SQLite database at `~/.local/share/dotx/installed.db` (or `$XDG_DATA_HOME/dotx/installed.db`). This enables better package management and verification.
 
 #### List installed packages
 
@@ -261,7 +261,7 @@ The `sync` command scans your home directory for symlinks and attempts to determ
 #### Installation Database
 - **SQLite database** tracks which packages installed which files
 - **New commands**: `list`, `verify`, `show`, `sync` for package management
-- Database location respects `XDG_CONFIG_HOME` environment variable
+- Database location respects `XDG_DATA_HOME` environment variable
 - Export reinstall commands with `dotx list --as-commands` for easy migration
 
 #### Improved Ignore System

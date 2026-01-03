@@ -244,10 +244,10 @@ def test_package_exists(tmp_path):
 
 def test_cli_list_no_packages(tmp_path, monkeypatch):
     """Test 'dotx list' with no installed packages."""
-    # Override XDG_CONFIG_HOME to use test directory
-    config_dir = tmp_path / "config"
-    config_dir.mkdir()
-    monkeypatch.setenv("XDG_CONFIG_HOME", str(config_dir))
+    # Override XDG_DATA_HOME to use test directory
+    data_dir = tmp_path / "data"
+    data_dir.mkdir()
+    monkeypatch.setenv("XDG_DATA_HOME", str(data_dir))
 
     runner = CliRunner()
     result = runner.invoke(app, ["list"])
@@ -258,10 +258,10 @@ def test_cli_list_no_packages(tmp_path, monkeypatch):
 
 def test_cli_list_with_packages(tmp_path, monkeypatch):
     """Test 'dotx list' showing installed packages."""
-    # Override XDG_CONFIG_HOME
-    config_dir = tmp_path / "config"
-    config_dir.mkdir()
-    monkeypatch.setenv("XDG_CONFIG_HOME", str(config_dir))
+    # Override XDG_DATA_HOME
+    data_dir = tmp_path / "config"
+    data_dir.mkdir()
+    monkeypatch.setenv("XDG_DATA_HOME", str(data_dir))
 
     # Create source packages
     source1 = tmp_path / "source1"
@@ -295,10 +295,10 @@ def test_cli_list_with_packages(tmp_path, monkeypatch):
 
 def test_cli_list_as_commands(tmp_path, monkeypatch):
     """Test 'dotx list --as-commands' output."""
-    # Override XDG_CONFIG_HOME
-    config_dir = tmp_path / "config"
-    config_dir.mkdir()
-    monkeypatch.setenv("XDG_CONFIG_HOME", str(config_dir))
+    # Override XDG_DATA_HOME
+    data_dir = tmp_path / "config"
+    data_dir.mkdir()
+    monkeypatch.setenv("XDG_DATA_HOME", str(data_dir))
 
     # Create and install a package
     source = tmp_path / "source"
@@ -322,10 +322,10 @@ def test_cli_list_as_commands(tmp_path, monkeypatch):
 
 def test_cli_verify_all_packages(tmp_path, monkeypatch):
     """Test 'dotx verify' for all packages."""
-    # Override XDG_CONFIG_HOME
-    config_dir = tmp_path / "config"
-    config_dir.mkdir()
-    monkeypatch.setenv("XDG_CONFIG_HOME", str(config_dir))
+    # Override XDG_DATA_HOME
+    data_dir = tmp_path / "config"
+    data_dir.mkdir()
+    monkeypatch.setenv("XDG_DATA_HOME", str(data_dir))
 
     # Create and install a package
     source = tmp_path / "source"
@@ -350,10 +350,10 @@ def test_cli_verify_all_packages(tmp_path, monkeypatch):
 
 def test_cli_verify_specific_package(tmp_path, monkeypatch):
     """Test 'dotx verify' for a specific package."""
-    # Override XDG_CONFIG_HOME
-    config_dir = tmp_path / "config"
-    config_dir.mkdir()
-    monkeypatch.setenv("XDG_CONFIG_HOME", str(config_dir))
+    # Override XDG_DATA_HOME
+    data_dir = tmp_path / "config"
+    data_dir.mkdir()
+    monkeypatch.setenv("XDG_DATA_HOME", str(data_dir))
 
     # Create and install a package
     source = tmp_path / "source"
@@ -376,10 +376,10 @@ def test_cli_verify_specific_package(tmp_path, monkeypatch):
 
 def test_cli_verify_detects_missing_file(tmp_path, monkeypatch):
     """Test 'dotx verify' detects when installed file is missing."""
-    # Override XDG_CONFIG_HOME
-    config_dir = tmp_path / "config"
-    config_dir.mkdir()
-    monkeypatch.setenv("XDG_CONFIG_HOME", str(config_dir))
+    # Override XDG_DATA_HOME
+    data_dir = tmp_path / "config"
+    data_dir.mkdir()
+    monkeypatch.setenv("XDG_DATA_HOME", str(data_dir))
 
     # Create and install a package
     source = tmp_path / "source"
@@ -406,10 +406,10 @@ def test_cli_verify_detects_missing_file(tmp_path, monkeypatch):
 
 def test_cli_show_package(tmp_path, monkeypatch):
     """Test 'dotx show' displays package installation details."""
-    # Override XDG_CONFIG_HOME
-    config_dir = tmp_path / "config"
-    config_dir.mkdir()
-    monkeypatch.setenv("XDG_CONFIG_HOME", str(config_dir))
+    # Override XDG_DATA_HOME
+    data_dir = tmp_path / "config"
+    data_dir.mkdir()
+    monkeypatch.setenv("XDG_DATA_HOME", str(data_dir))
 
     # Create and install a package with multiple files
     source = tmp_path / "source"
@@ -436,10 +436,10 @@ def test_cli_show_package(tmp_path, monkeypatch):
 
 def test_cli_show_nonexistent_package(tmp_path, monkeypatch):
     """Test 'dotx show' with package not in database."""
-    # Override XDG_CONFIG_HOME
-    config_dir = tmp_path / "config"
-    config_dir.mkdir()
-    monkeypatch.setenv("XDG_CONFIG_HOME", str(config_dir))
+    # Override XDG_DATA_HOME
+    data_dir = tmp_path / "config"
+    data_dir.mkdir()
+    monkeypatch.setenv("XDG_DATA_HOME", str(data_dir))
 
     # Create package but don't install it
     source = tmp_path / "source"
@@ -454,10 +454,10 @@ def test_cli_show_nonexistent_package(tmp_path, monkeypatch):
 
 def test_cli_sync_dry_run(tmp_path, monkeypatch):
     """Test 'dotx sync --dry-run' previews changes without modifying database."""
-    # Override XDG_CONFIG_HOME
-    config_dir = tmp_path / "config"
-    config_dir.mkdir()
-    monkeypatch.setenv("XDG_CONFIG_HOME", str(config_dir))
+    # Override XDG_DATA_HOME
+    data_dir = tmp_path / "config"
+    data_dir.mkdir()
+    monkeypatch.setenv("XDG_DATA_HOME", str(data_dir))
 
     # Create source and symlinks
     source = tmp_path / "source"
@@ -480,10 +480,10 @@ def test_cli_sync_dry_run(tmp_path, monkeypatch):
 
 def test_cli_sync_no_symlinks(tmp_path, monkeypatch):
     """Test 'dotx sync' when no symlinks exist."""
-    # Override XDG_CONFIG_HOME
-    config_dir = tmp_path / "config"
-    config_dir.mkdir()
-    monkeypatch.setenv("XDG_CONFIG_HOME", str(config_dir))
+    # Override XDG_DATA_HOME
+    data_dir = tmp_path / "config"
+    data_dir.mkdir()
+    monkeypatch.setenv("XDG_DATA_HOME", str(data_dir))
 
     target = tmp_path / "target"
     target.mkdir()
@@ -511,4 +511,4 @@ def test_database_schema_version(tmp_path):
         )
         version_row = cursor.fetchone()
         assert version_row is not None
-        assert version_row["value"] == "2"
+        assert version_row["value"] == "1"
