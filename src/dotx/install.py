@@ -9,9 +9,6 @@ Exported functions:
     plan_install_paths
 """
 
-
-# TODO: update docstrings for functions to list parameters and return values
-
 import os
 from pathlib import Path
 
@@ -40,7 +37,14 @@ def plan_install(source_package_root: Path, destination_root: Path) -> Plan:
     """
     plan: Plan = plan_install_paths(source_package_root)
 
-    # TODO: add comments, this loop looks impenetrable
+    # Walk the source package bottom-up to determine what action to take for each path.
+    # Bottom-up traversal ensures we know about children before deciding on parents.
+    # This algorithm decides whether to:
+    #   - LINK: Create a symlink to the whole directory/file
+    #   - CREATE: Make a real directory (needed when children require renaming)
+    #   - EXISTS: Directory already exists at destination
+    #   - FAIL: Would overwrite an existing regular file
+    #   - SKIP: Parent will be linked, so children need no action
     for current_root, child_directories, child_files in os.walk(
         source_package_root, topdown=False
     ):
@@ -53,13 +57,17 @@ def plan_install(source_package_root: Path, destination_root: Path) -> Plan:
             relative_root_path
         ].relative_destination_path
 
+        # First pass: check children for renaming needs and conflicts
         found_children_to_rename = False
         for child in child_directories + child_files:
             child_relative_source_path = relative_root_path / child
             if child_relative_source_path not in plan:
                 continue
+            # If any child needs renaming (e.g., dot-bashrc → .bashrc),
+            # we can't link the whole directory - must CREATE it instead
             if plan[child_relative_source_path].requires_rename:
                 found_children_to_rename = True
+            # Fail if we would overwrite an existing regular file
             destination_path = (
                 destination_root
                 / plan[child_relative_source_path].relative_destination_path
@@ -67,10 +75,14 @@ def plan_install(source_package_root: Path, destination_root: Path) -> Plan:
             if destination_path.exists() and destination_path.is_file():
                 plan[child_relative_source_path].action = Action.FAIL
 
+        # Second pass: decide action for current directory based on children and destination state
         if current_root_path == source_package_root:
+            # Package root always EXISTS (it's the target directory)
             plan[relative_root_path].action = Action.EXISTS
         elif found_children_to_rename:
+            # Can't link whole directory if children need renaming - must CREATE it
             plan[relative_root_path].action = Action.CREATE
+            # Parent directories must also be created up to one that already exists
             mark_all_ancestors(
                 relative_root_path,
                 mark=Action.CREATE,
@@ -78,7 +90,9 @@ def plan_install(source_package_root: Path, destination_root: Path) -> Plan:
                 plan=plan,
             )
         elif (destination_root / relative_destination_root_path).exists():
+            # Directory already exists at destination - merge into it
             plan[relative_root_path].action = Action.EXISTS
+            # Mark ancestors as existing too
             mark_all_ancestors(
                 relative_root_path,
                 mark=Action.EXISTS,
@@ -86,9 +100,12 @@ def plan_install(source_package_root: Path, destination_root: Path) -> Plan:
                 plan=plan,
             )
         else:
+            # Directory doesn't exist and has no rename conflicts - we can link it
             plan[relative_root_path].action = Action.LINK
 
+        # Third pass: mark children based on what we decided for this directory
         if plan[relative_root_path].action in {Action.CREATE, Action.EXISTS}:
+            # Directory will exist (created or already there) - children should be linked
             mark_immediate_children(
                 relative_root_path,
                 mark=Action.LINK,
@@ -97,6 +114,7 @@ def plan_install(source_package_root: Path, destination_root: Path) -> Plan:
                 plan=plan,
             )
         elif plan[relative_root_path].action == Action.LINK:
+            # Whole directory will be linked - children should be skipped
             mark_immediate_children(
                 relative_root_path,
                 mark=Action.SKIP,
@@ -141,7 +159,14 @@ def plan_install_paths(source_package_root: Path) -> Plan:
         )
     }
 
-    # TODO: more comments; another impenetrable loop
+    # Walk the source package top-down to build initial plan with all paths and rename info.
+    # Top-down traversal ensures parent directories are processed before children,
+    # which is critical for correctly calculating destination paths when renaming.
+    # At this stage, we:
+    #   - Create a PlanNode for every non-ignored file/directory
+    #   - Determine which items need renaming (dot-foo → .foo)
+    #   - Calculate correct destination paths considering parent renames
+    #   - Mark everything as Action.NONE (actual actions decided later)
     for current_root, child_directories, child_files in os.walk(source_package_root):
         current_root_path = Path(current_root)
 
@@ -149,6 +174,7 @@ def plan_install_paths(source_package_root: Path) -> Plan:
         ignore_rules.load_ignore_file(current_root_path)
 
         # Prune ignored directories to prevent descending into them
+        # This modifies child_directories in-place so os.walk won't recurse into them
         child_directories[:] = ignore_rules.prune_directories(
             current_root_path, child_directories, source_package_root
         )
@@ -160,6 +186,7 @@ def plan_install_paths(source_package_root: Path) -> Plan:
         relative_root_path = current_root_path.relative_to(source_package_root)
         current_destination_path = plan[relative_root_path].relative_destination_path
 
+        # Process each child (files and directories)
         for child in child_directories + child_files:
             requires_rename = False
             child_source_path = source_package_root / relative_root_path / child
@@ -168,6 +195,9 @@ def plan_install_paths(source_package_root: Path) -> Plan:
             # Skip ignored files and directories
             if ignore_rules.should_ignore(child_source_path, source_package_root):
                 continue
+
+            # Handle dot- prefix renaming: "dot-bashrc" → ".bashrc"
+            # This allows tracking dotfiles in version control without hiding them
             if child.startswith("dot-"):
                 requires_rename = True
                 child_relative_destination_path = current_destination_path / (
@@ -175,6 +205,9 @@ def plan_install_paths(source_package_root: Path) -> Plan:
                 )
             else:
                 child_relative_destination_path = current_destination_path / child
+
+            # Create PlanNode with path info and initial Action.NONE
+            # The actual action (LINK, CREATE, etc.) will be determined in plan_install()
             plan[child_relative_source_path] = PlanNode(
                 action=Action.NONE,
                 requires_rename=requires_rename,

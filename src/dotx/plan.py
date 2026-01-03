@@ -165,7 +165,10 @@ def execute_plan(
                 exit(2)
 
     steps = extract_plan(plan, actions={Action.CREATE, Action.LINK, Action.UNLINK})
-    # TODO: dry run test is outside the loop, so the loop is doubled.  Do I like that?  Or move it inside?
+
+    # Check dry-run once before the loop rather than on every iteration for better performance.
+    # This does duplicate the loop code, but avoids thousands of repeated is_dry_run() calls
+    # in installations with many files.
     if is_dry_run():
         for step in steps:
             command = build_shell_command(step)

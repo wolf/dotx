@@ -1,5 +1,18 @@
-# TODO: put a docstring here
-# TODO: I'm using click, should I convert to typer?
+"""
+Command-line interface for dotx.
+
+This module defines the CLI commands for managing dotfile installations using Click.
+The main commands are:
+- install: Create symlinks from source packages to target directory
+- uninstall: Remove symlinks for source packages
+- list: Show all installed packages
+- verify: Check installation integrity
+- show: Display detailed package information
+- sync: Rebuild database from filesystem (placeholder)
+
+Each command supports common options like --debug, --verbose, --dry-run, and --target.
+The installation database tracks which packages have installed which files.
+"""
 
 import pathlib
 import sys
