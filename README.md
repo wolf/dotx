@@ -45,6 +45,10 @@ Options:
 Commands:
   install    install [source-package...]
   uninstall  uninstall [source-package...]
+  list       List all installed packages
+  verify     Verify installations against filesystem
+  show       Show detailed installation information for a package
+  sync       Rebuild database from filesystem (interactive)
 ```
 So if you had a source package (a directory containing files) named `"bash"` containing `"dot-bashrc"` and
 `"dot-bash_profile"` you could install links to those two files (named `".bashrc"` and `".bash_profile"`) into your
@@ -125,13 +129,129 @@ Uninstall looks almost just like install:
 ```bash
 dotx uninstall bash vim tmux
 ```
+
+### Installation Database
+
+`dotx` tracks all installations in a SQLite database at `~/.config/dotx/installed.db` (or `$XDG_CONFIG_HOME/dotx/installed.db`). This enables better package management and verification.
+
+#### List installed packages
+
+See all installed packages with file counts and installation dates:
+
+```bash
++$ dotx list
+
+Installed Packages:
+--------------------------------------------------------------------------------
+Package                                            Files      Last Install
+--------------------------------------------------------------------------------
+/Users/wolf/builds/dotfiles/bash                   12         2026-01-02 14:23:11
+/Users/wolf/builds/dotfiles/tmux                   3          2026-01-02 14:23:15
+/Users/wolf/builds/dotfiles/vim                    8          2026-01-02 14:23:18
+--------------------------------------------------------------------------------
+Total: 3 package(s)
+```
+
+Export as reinstall commands for easy migration:
+
+```bash
++$ dotx list --as-commands
+dotx install /Users/wolf/builds/dotfiles/bash
+dotx install /Users/wolf/builds/dotfiles/tmux
+dotx install /Users/wolf/builds/dotfiles/vim
+```
+
+#### Verify installations
+
+Check that database records match the filesystem:
+
+```bash
++$ dotx verify
+
+✓ All installations verified successfully.
+```
+
+Or verify a specific package:
+
+```bash
++$ dotx verify bash
+
+/Users/wolf/builds/dotfiles/bash:
+  /Users/wolf/.bashrc
+    Issue: File missing (in DB but not on filesystem)
+    Expected type: file
+
+⚠ Found 1 issue(s).
+```
+
+#### Show package details
+
+View detailed information about a specific package:
+
+```bash
++$ dotx show bash
+
+Package: /Users/wolf/builds/dotfiles/bash
+Installed files: 12
+
+Installations:
+--------------------------------------------------------------------------------
+
+  Target: /Users/wolf/.bash_profile
+  Type:   file
+  When:   2026-01-02T14:23:11.234567
+
+  Target: /Users/wolf/.bashrc
+  Type:   file
+  When:   2026-01-02T14:23:11.456789
+
+  Target: /Users/wolf/.bash_topics.d
+  Type:   directory
+  When:   2026-01-02T14:23:11.678901
+...
+```
+
+#### Rebuild database from filesystem
+
+If you have existing dotfile installations and an empty or missing database, use `sync` to rebuild it:
+
+```bash
++$ dotx sync
+⚠ The sync command is not yet implemented.
+This would scan the filesystem for symlinks and rebuild the database.
+For now, you can:
+  1. Remove ~/.config/dotx/installed.db
+  2. Reinstall your packages with 'dotx install'
+```
+
 ### How it works
 
+*Documentation to be expanded*
 
+### What's New in v1.0.0
+
+#### Installation Database
+- **SQLite database** tracks which packages installed which files
+- **New commands**: `list`, `verify`, `show`, `sync` for package management
+- Database location respects `XDG_CONFIG_HOME` environment variable
+- Export reinstall commands with `dotx list --as-commands` for easy migration
+
+#### Improved Ignore System
+- **`.dotxignore` files** replace CLI `-i/--ignore` option (breaking change)
+- Full gitignore-style pattern syntax support
+- Nested `.dotxignore` files in subdirectories
+- Global ignore file at `~/.config/dotx/ignore`
+- Negation patterns (`!important.conf`)
+
+#### Quality Improvements
+- Pre-commit hooks with ruff, pyrefly, pytest
+- Modern Python type annotations throughout
+- Better logging with loguru
+- Comprehensive code documentation and comments
 
 ### Migration from older versions
 
-**Breaking change in v0.2.0:** The `-i/--ignore` command-line option has been removed in favor of `.dotxignore` files.
+**Breaking change in v1.0.0:** The `-i/--ignore` command-line option has been removed in favor of `.dotxignore` files.
 
 If you were using:
 ```bash
@@ -151,4 +271,10 @@ EOF
 Or use the global ignore file at `~/.config/dotx/ignore` for patterns that apply to all packages.
 
 ### What's next
-* ...
+
+Potential future enhancements:
+* Implement `dotx sync` command to rebuild database from filesystem
+* Support for templates and variable substitution in dotfiles
+* Hooks system for running commands before/after installation
+* Conflict resolution strategies for overlapping packages
+* Shell completions for bash/zsh/fish
