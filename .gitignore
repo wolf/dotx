@@ -12,3 +12,8 @@ node_modules/
 *venv/
 .idea/
 dist/
+
+# Coverage
+.coverage
+.coverage.*
+htmlcov/

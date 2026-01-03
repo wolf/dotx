@@ -216,13 +216,28 @@ Installations:
 If you have existing dotfile installations and an empty or missing database, use `sync` to rebuild it:
 
 ```bash
+# Preview what would be added to database
++$ dotx sync --dry-run
+
+# Interactively rebuild database from filesystem
 +$ dotx sync
-⚠ The sync command is not yet implemented.
-This would scan the filesystem for symlinks and rebuild the database.
-For now, you can:
-  1. Remove ~/.config/dotx/installed.db
-  2. Reinstall your packages with 'dotx install'
+Found 15 symlink(s) in /Users/wolf
+
+Discovered 3 potential package(s):
+  /Users/wolf/dotfiles/bash
+    5 symlink(s)
+  /Users/wolf/dotfiles/vim
+    8 symlink(s)
+  /Users/wolf/dotfiles/git
+    2 symlink(s)
+
+This will rebuild the database with the discovered installations.
+Continue? [y/N]: y
+
+✓ Recorded 15 installation(s) in database.
 ```
+
+The `sync` command scans your home directory for symlinks and attempts to determine which package they belong to, then rebuilds the database accordingly.
 
 ### How it works
 
@@ -270,10 +285,55 @@ EOF
 
 Or use the global ignore file at `~/.config/dotx/ignore` for patterns that apply to all packages.
 
+## Development
+
+### Running Tests
+
+dotx uses pytest for testing with coverage tracking:
+
+```bash
+# Run all tests with coverage report
+pytest
+
+# Run specific test file
+pytest tests/test_install.py
+
+# Run tests without coverage
+pytest --no-cov
+
+# View detailed HTML coverage report
+pytest && open htmlcov/index.html
+```
+
+Current test coverage is tracked and reported automatically. The coverage report shows:
+- Line coverage percentage for each module
+- Branch coverage for conditional statements
+- Missing lines that need test coverage
+
+### Pre-commit Hooks
+
+The project uses pre-commit hooks to ensure code quality:
+
+```bash
+# Install hooks (one-time setup)
+pre-commit install
+
+# Run hooks manually on all files
+pre-commit run --all-files
+```
+
+Hooks include:
+- **ruff**: Linting and formatting
+- **pyrefly**: Type checking
+- **pytest**: All tests must pass
+
+### Integration Testing
+
+Tests in `tests/test_cli.py` use `CliRunner` from `typer.testing` to perform integration testing of the CLI. These tests run the entire CLI app in-process, verifying that commands work end-to-end with real filesystem operations.
+
 ### What's next
 
 Potential future enhancements:
-* Implement `dotx sync` command to rebuild database from filesystem
 * Support for templates and variable substitution in dotfiles
 * Hooks system for running commands before/after installation
 * Conflict resolution strategies for overlapping packages

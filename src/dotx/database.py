@@ -240,13 +240,14 @@ class InstallationDB:
         Record an installation in the database.
 
         The link_type should be 'file', 'directory', or 'created_dir'.
-        Both paths are resolved to absolute paths before storage.
+        Package path is resolved (follows symlinks), but target path
+        is made absolute without following symlinks (to preserve symlink location).
         """
         if not self.conn:
             raise RuntimeError("Database not connected")
 
         package_str = str(package_name.resolve())
-        target_str = str(target_path.resolve())
+        target_str = str(target_path.absolute())
 
         try:
             self.conn.execute(
@@ -271,12 +272,12 @@ class InstallationDB:
         """
         Remove an installation record from the database.
 
-        Path is resolved to absolute path before lookup.
+        Path is made absolute without following symlinks.
         """
         if not self.conn:
             raise RuntimeError("Database not connected")
 
-        target_str = str(target_path.resolve())
+        target_str = str(target_path.absolute())
 
         try:
             self.conn.execute(
