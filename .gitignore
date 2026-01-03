@@ -17,3 +17,7 @@ dist/
 .coverage
 .coverage.*
 htmlcov/
+
+# Local environment and configuration
+.envrc.local
+.claude/
