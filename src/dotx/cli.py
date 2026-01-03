@@ -302,14 +302,102 @@ def show(package):
 
 
 @cli.command()
-def sync():
+@click.option(
+    "--dry-run",
+    is_flag=True,
+    help="Show what would be added without modifying the database",
+)
+def sync(dry_run):
     """Rebuild database from filesystem (scan for existing symlinks)."""
     logger.info("sync starting")
 
-    click.echo("⚠ The sync command is not yet implemented.")
-    click.echo("This would scan the filesystem for symlinks and rebuild the database.")
-    click.echo("For now, you can:")
-    click.echo("  1. Remove ~/.config/dotx/installed.db")
-    click.echo("  2. Reinstall your packages with 'dotx install'")
+    destination_root = pathlib.Path(get_option("TARGET"))
+
+    # Scan filesystem for symlinks
+    symlinks = []
+    for root, dirs, files in destination_root.walk():
+        # Check if directories are symlinks
+        for dirname in dirs[:]:
+            dirpath = root / dirname
+            if dirpath.is_symlink():
+                symlinks.append((dirpath, True))  # (path, is_dir)
+                # Don't descend into symlinked directories
+                dirs.remove(dirname)
+
+        # Check if files are symlinks
+        for filename in files:
+            filepath = root / filename
+            if filepath.is_symlink():
+                symlinks.append((filepath, False))  # (path, is_dir)
+
+    if not symlinks:
+        click.echo("No symlinks found in target directory.")
+        logger.info("sync finished - no symlinks found")
+        return
+
+    click.echo(f"Found {len(symlinks)} symlink(s) in {destination_root}")
+
+    # Group symlinks by their resolved source parent directory (package)
+    packages = {}
+    unknown = []
+
+    for link_path, is_dir in symlinks:
+        try:
+            # Resolve the symlink to find the actual source
+            resolved = link_path.resolve(strict=True)
+
+            # Try to find a reasonable package root
+            # Assume package is parent directory of the resolved path
+            # This is a heuristic - might need refinement
+            if resolved.parent.exists():
+                package_root = resolved.parent
+                if package_root not in packages:
+                    packages[package_root] = []
+                packages[package_root].append((link_path, resolved, is_dir))
+            else:
+                unknown.append((link_path, resolved, is_dir))
+        except (OSError, RuntimeError) as e:
+            logger.warning(f"Failed to resolve symlink {link_path}: {e}")
+            unknown.append((link_path, None, is_dir))
+
+    # Show what was found
+    click.echo(f"\nDiscovered {len(packages)} potential package(s):")
+    for package_root, links in packages.items():
+        click.echo(f"\n  {package_root}")
+        click.echo(f"    {len(links)} symlink(s)")
+
+    if unknown:
+        click.echo(f"\n  Unknown/broken: {len(unknown)} symlink(s)")
+
+    if dry_run:
+        click.echo("\nDry run - no database changes made.")
+        logger.info("sync finished - dry run")
+        return
+
+    # Ask for confirmation
+    click.echo("\nThis will rebuild the database with the discovered installations.")
+    if not click.confirm("Continue?"):
+        click.echo("Cancelled.")
+        logger.info("sync finished - cancelled by user")
+        return
+
+    # Open database and record installations
+    with InstallationDB() as db:
+        total_recorded = 0
+
+        for package_root, links in packages.items():
+            for link_path, resolved, is_dir in links:
+                # Determine link type
+                if is_dir:
+                    link_type = "directory"
+                else:
+                    link_type = "file"
+
+                # Record in database
+                db.record_installation(package_root, link_path, link_type)
+                total_recorded += 1
+                logger.debug(f"Recorded {link_path} -> {package_root}")
+
+        click.echo(f"\n✓ Recorded {total_recorded} installation(s) in database.")
 
     logger.info("sync finished")

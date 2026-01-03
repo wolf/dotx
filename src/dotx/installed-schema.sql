@@ -1,19 +1,21 @@
 -- Database schema for dotx installation tracking
--- Version: 1
+-- Version: 2
+--
+-- BREAKING CHANGE from v1: target_path is now unique (not package_name + target_path)
+-- This reflects the reality that only one package can install a given file at a time.
 
 -- Track installed files and directories
 CREATE TABLE IF NOT EXISTS installations (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     package_name TEXT NOT NULL,        -- Absolute path to source package
-    target_path TEXT NOT NULL,         -- Absolute path to installed file
+    target_path TEXT NOT NULL UNIQUE,  -- Absolute path to installed file (must be unique)
     link_type TEXT NOT NULL,           -- 'file', 'directory', 'created_dir'
-    installed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(package_name, target_path)
+    installed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Indexes for efficient queries
 CREATE INDEX IF NOT EXISTS idx_package_name ON installations(package_name);
-CREATE INDEX IF NOT EXISTS idx_target_path ON installations(target_path);
+-- Note: idx_target_path is redundant with UNIQUE constraint, which creates an index
 
 -- Metadata key-value store
 CREATE TABLE IF NOT EXISTS metadata (
@@ -22,4 +24,4 @@ CREATE TABLE IF NOT EXISTS metadata (
 );
 
 -- Initialize schema version
-INSERT OR IGNORE INTO metadata (key, value) VALUES ('schema_version', '1');
+INSERT OR IGNORE INTO metadata (key, value) VALUES ('schema_version', '2');
