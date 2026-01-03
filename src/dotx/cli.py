@@ -23,11 +23,13 @@ import typer
 from loguru import logger
 from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskProgressColumn
+from rich.table import Table
+from rich.panel import Panel
 
 from dotx import __version__, __homepage__
 from dotx.database import InstallationDB
 from dotx.install import plan_install
-from dotx.options import set_option
+from dotx.options import set_option, is_verbose_mode
 from dotx.plan import Action, Plan, execute_plan, extract_plan, log_extracted_plan
 from dotx.uninstall import plan_uninstall
 
@@ -130,6 +132,8 @@ def install(
 ):
     """Install source packages to target directory."""
     logger.info("install starting")
+    console = Console()
+    verbose = is_verbose_mode(ctx)
 
     # Get target from options
     target_path = Path(ctx.obj.get("TARGET", Path.home())) if ctx.obj else Path.home()
@@ -150,20 +154,64 @@ def install(
             failures = extract_plan(plan, {Action.FAIL})
             if failures:
                 can_install = False
-                typer.echo(
-                    f"Error: can't install {source_package} because it would overwrite:"
+                console.print(
+                    f"[red]✗ Error: can't install {source_package.name} - would overwrite:[/red]"
                 )
                 for plan_node in failures:
-                    typer.echo(f"{target_path / plan_node.relative_destination_path}")
-                typer.echo()
+                    console.print(f"  {target_path / plan_node.relative_destination_path}")
+                console.print()
 
         if can_install:
-            # Open database and execute all plans
+            # Count total actions
+            total_actions = sum(
+                len(extract_plan(plan, {Action.LINK, Action.CREATE}))
+                for _, plan in plans
+            )
+
+            # Open database and execute all plans with progress
             with InstallationDB() as db:
-                for source_package, plan in plans:
-                    execute_plan(source_package, target_path, plan, db)
+                if verbose:
+                    # Verbose: show each file
+                    for source_package, plan in plans:
+                        console.print(f"[cyan]Installing {source_package.name}...[/cyan]")
+                        for node in extract_plan(plan, {Action.LINK, Action.CREATE}):
+                            console.print(f"  {node.relative_destination_path}")
+                        execute_plan(source_package, target_path, plan, db)
+                else:
+                    # Default: show progress bar
+                    with Progress(
+                        SpinnerColumn(),
+                        TextColumn("[progress.description]{task.description}"),
+                        BarColumn(),
+                        TaskProgressColumn(),
+                        console=console,
+                    ) as progress:
+                        task = progress.add_task("Installing...", total=total_actions)
+                        for source_package, plan in plans:
+                            progress.update(task, description=f"Installing {source_package.name}...")
+                            execute_plan(source_package, target_path, plan, db)
+                            progress.advance(task, len(extract_plan(plan, {Action.LINK, Action.CREATE})))
+
+            # Show summary
+            total_files = sum(
+                len(extract_plan(plan, {Action.LINK}))
+                for _, plan in plans
+            )
+            total_dirs = sum(
+                len(extract_plan(plan, {Action.CREATE}))
+                for _, plan in plans
+            )
+
+            summary_parts = []
+            if total_files:
+                summary_parts.append(f"{total_files} file(s)")
+            if total_dirs:
+                summary_parts.append(f"{total_dirs} dir(s)")
+
+            summary = " and ".join(summary_parts) if summary_parts else "nothing"
+            console.print(f"\n[green]✓ Installed {summary} from {len(sources)} package(s)[/green]")
         else:
-            typer.echo("Refusing to install anything because of previous failures.")
+            console.print("[red]✗ Refusing to install - conflicts detected[/red]")
 
     logger.info("install finished")
 
@@ -184,6 +232,8 @@ def uninstall(
 ):
     """Uninstall source packages from target directory."""
     logger.info("uninstall starting")
+    console = Console()
+    verbose = is_verbose_mode(ctx)
 
     # Get target from options
     target_path = Path(ctx.obj.get("TARGET", Path.home())) if ctx.obj else Path.home()
@@ -199,10 +249,42 @@ def uninstall(
             )
             plans.append((source_package, plan))
 
-        # Open database and execute all plans
+        # Count total actions
+        total_actions = sum(
+            len(extract_plan(plan, {Action.UNLINK}))
+            for _, plan in plans
+        )
+
+        # Open database and execute all plans with progress
         with InstallationDB() as db:
-            for source_package, plan in plans:
-                execute_plan(source_package, target_path, plan, db)
+            if verbose:
+                # Verbose: show each file
+                for source_package, plan in plans:
+                    console.print(f"[cyan]Uninstalling {source_package.name}...[/cyan]")
+                    for node in extract_plan(plan, {Action.UNLINK}):
+                        console.print(f"  {node.relative_destination_path}")
+                    execute_plan(source_package, target_path, plan, db)
+            else:
+                # Default: show progress bar
+                with Progress(
+                    SpinnerColumn(),
+                    TextColumn("[progress.description]{task.description}"),
+                    BarColumn(),
+                    TaskProgressColumn(),
+                    console=console,
+                ) as progress:
+                    task = progress.add_task("Uninstalling...", total=total_actions)
+                    for source_package, plan in plans:
+                        progress.update(task, description=f"Uninstalling {source_package.name}...")
+                        execute_plan(source_package, target_path, plan, db)
+                        progress.advance(task, len(extract_plan(plan, {Action.UNLINK})))
+
+        # Show summary
+        total_removed = sum(
+            len(extract_plan(plan, {Action.UNLINK}))
+            for _, plan in plans
+        )
+        console.print(f"\n[green]✓ Removed {total_removed} symlink(s) from {len(sources)} package(s)[/green]")
 
     logger.info("uninstall finished")
 
@@ -216,35 +298,39 @@ def list_installed(
 ):
     """List all installed packages."""
     logger.info("list starting")
+    console = Console()
 
     with InstallationDB() as db:
         packages = db.get_all_packages()
 
         if not packages:
-            typer.echo("No packages installed.")
+            console.print("[yellow]No packages installed.[/yellow]")
             return
 
         if as_commands:
-            # Output as dotx install commands
+            # Output as dotx install commands (plain text, no formatting)
             for pkg in packages:
                 typer.echo(f"dotx install {pkg['package_name']}")
         else:
-            # Output as table
-            typer.echo("\nInstalled Packages:")
-            typer.echo("-" * 80)
-            typer.echo(f"{'Package':<50} {'Files':<10} {'Last Install':<20}")
-            typer.echo("-" * 80)
+            # Output as rich table
+            table = Table(title="Installed Packages", show_header=True, header_style="bold cyan")
+            table.add_column("Package", style="cyan", no_wrap=True)
+            table.add_column("Files", justify="right", style="magenta")
+            table.add_column("Last Install", style="green")
+
             for pkg in packages:
                 package_name = Path(pkg["package_name"]).name
-                file_count = pkg["file_count"]
+                file_count = str(pkg["file_count"])
                 latest = (
                     pkg["latest_install"][:19]
                     if pkg["latest_install"]
-                    else "unknown"
+                    else "[dim]unknown[/dim]"
                 )
-                typer.echo(f"{package_name:<50} {file_count:<10} {latest:<20}")
-            typer.echo("-" * 80)
-            typer.echo(f"Total: {len(packages)} package(s)\n")
+                table.add_row(package_name, file_count, latest)
+
+            console.print()
+            console.print(table)
+            console.print(f"\n[bold]Total: {len(packages)} package(s)[/bold]\n")
 
     logger.info("list finished")
 
@@ -264,6 +350,7 @@ def verify(
 ):
     """Verify installations against filesystem."""
     logger.info("verify starting")
+    console = Console()
 
     with InstallationDB() as db:
         if package:
@@ -277,24 +364,24 @@ def verify(
             ]
 
         if not packages_to_verify:
-            typer.echo("No packages to verify.")
+            console.print("[yellow]No packages to verify.[/yellow]")
             return
 
         total_issues = 0
         for pkg in packages_to_verify:
             issues = db.verify_installations(pkg)
             if issues:
-                typer.echo(f"\n{pkg}:")
+                console.print(f"\n[bold cyan]{pkg.name}:[/bold cyan]")
                 for issue in issues:
-                    typer.echo(f"  {issue['target_path']}")
-                    typer.echo(f"    Issue: {issue['issue']}")
-                    typer.echo(f"    Expected type: {issue['link_type']}")
+                    console.print(f"  [red]✗[/red] {issue['target_path']}")
+                    console.print(f"    [dim]Issue: {issue['issue']}[/dim]")
+                    console.print(f"    [dim]Expected: {issue['link_type']}[/dim]")
                 total_issues += len(issues)
 
         if total_issues == 0:
-            typer.echo("✓ All installations verified successfully.")
+            console.print("[green]✓ All installations verified successfully.[/green]")
         else:
-            typer.echo(f"\n⚠ Found {total_issues} issue(s).")
+            console.print(f"\n[yellow]⚠ Found {total_issues} issue(s).[/yellow]")
 
     logger.info("verify finished")
 
@@ -314,25 +401,39 @@ def show(
 ):
     """Show detailed installation information for a package."""
     logger.info("show starting")
+    console = Console()
 
     with InstallationDB() as db:
         installations = db.get_installations(package)
 
         if not installations:
-            typer.echo(f"No installations found for {package}")
+            console.print(f"[yellow]No installations found for {package.name}[/yellow]")
             return
 
-        typer.echo(f"\nPackage: {package}")
-        typer.echo(f"Installed files: {len(installations)}")
-        typer.echo("\nInstallations:")
-        typer.echo("-" * 80)
+        # Create info panel
+        info = f"[bold cyan]Package:[/bold cyan] {package}\n"
+        info += f"[bold cyan]Installed files:[/bold cyan] {len(installations)}"
+
+        panel = Panel(info, title="Package Information", border_style="cyan")
+        console.print()
+        console.print(panel)
+
+        # Create table for installations
+        table = Table(show_header=True, header_style="bold magenta", box=None)
+        table.add_column("Target Path", style="cyan", no_wrap=False, overflow="fold")
+        table.add_column("Type", style="yellow")
+        table.add_column("Installed At", style="green")
 
         for install in installations:
-            typer.echo(f"\n  Target: {install['target_path']}")
-            typer.echo(f"  Type:   {install['link_type']}")
-            typer.echo(f"  When:   {install['installed_at']}")
+            table.add_row(
+                str(install['target_path']),
+                install['link_type'],
+                install['installed_at'][:19] if install['installed_at'] else "unknown"
+            )
 
-        typer.echo("-" * 80)
+        console.print()
+        console.print(table)
+        console.print()
 
     logger.info("show finished")
 
