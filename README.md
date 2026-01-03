@@ -243,6 +243,19 @@ The `sync` command scans your home directory for symlinks and attempts to determ
 
 *Documentation to be expanded*
 
+### What's New in v1.1.0
+
+#### Testing and Quality
+- **Comprehensive test coverage**: 77.64% overall (up from 53%)
+- **21 new database command tests**: Full integration testing for `list`, `verify`, `show`, `sync`
+- **Automated coverage tracking**: pytest-cov integration with HTML reports
+- **Bug fix**: Database now correctly stores symlink paths instead of resolved paths
+
+#### Documentation
+- Added Development section with testing, pre-commit hooks, and integration testing docs
+- Added clean-up instructions for development artifacts
+- Coverage reports available via `open htmlcov/index.html`
+
 ### What's New in v1.0.0
 
 #### Installation Database
