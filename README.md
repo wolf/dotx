@@ -349,60 +349,9 @@ Cleaning orphaned entries...
 
 *Documentation to be expanded*
 
-### What's New in v1.1.0
+### Changelog
 
-#### Testing and Quality
-- **Comprehensive test coverage**: 77.64% overall (up from 53%)
-- **21 new database command tests**: Full integration testing for `list`, `verify`, `show`, `sync`
-- **Automated coverage tracking**: pytest-cov integration with HTML reports
-- **Bug fix**: Database now correctly stores symlink paths instead of resolved paths
-
-#### Documentation
-- Added Development section with testing, pre-commit hooks, and integration testing docs
-- Added clean-up instructions for development artifacts
-- Coverage reports available via `open htmlcov/index.html`
-
-### What's New in v1.0.0
-
-#### Installation Database
-- **SQLite database** tracks which packages installed which files
-- **New commands**: `list`, `verify`, `show`, `sync` for package management
-- Database location respects `XDG_DATA_HOME` environment variable
-- Export reinstall commands with `dotx list --as-commands` for easy migration
-
-#### Improved Ignore System
-- **`.dotxignore` files** replace CLI `-i/--ignore` option (breaking change)
-- Full gitignore-style pattern syntax support
-- Nested `.dotxignore` files in subdirectories
-- Global ignore file at `~/.config/dotx/ignore`
-- Negation patterns (`!important.conf`)
-
-#### Quality Improvements
-- Pre-commit hooks with ruff, pyrefly, pytest
-- Modern Python type annotations throughout
-- Better logging with loguru
-- Comprehensive code documentation and comments
-
-### Migration from older versions
-
-**Breaking change in v1.0.0:** The `-i/--ignore` command-line option has been removed in favor of `.dotxignore` files.
-
-If you were using:
-```bash
-dotx --ignore=README.* --ignore=.mypy_cache install bash
-```
-
-Now create a `.dotxignore` file in your package:
-```bash
-+$ cat > bash/.dotxignore <<EOF
-README.*
-.mypy_cache
-EOF
-
-+$ dotx install bash
-```
-
-Or use the global ignore file at `~/.config/dotx/ignore` for patterns that apply to all packages.
+See [CHANGELOG.md](CHANGELOG.md) for version history and release notes.
 
 ## Development
 
