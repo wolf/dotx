@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.2.0] - 2026-01-03
+
 ### Added
 - `sync` command now supports `--package-root` flag to filter packages to specific directories
 - `sync` command now supports `--clean` flag to remove orphaned database entries (like `git fetch --prune`)
@@ -107,7 +109,8 @@ EOF
 dotx install bash
 ```
 
-[Unreleased]: https://github.com/wolf/dotx/compare/v2.1.0...HEAD
+[Unreleased]: https://github.com/wolf/dotx/compare/v2.2.0...HEAD
+[2.2.0]: https://github.com/wolf/dotx/compare/v2.1.0...v2.2.0
 [2.1.0]: https://github.com/wolf/dotx/compare/v2.0.4...v2.1.0
 [2.0.4]: https://github.com/wolf/dotx/compare/v2.0.3...v2.0.4
 [2.0.3]: https://github.com/wolf/dotx/compare/v2.0.2...v2.0.3

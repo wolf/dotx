@@ -1,6 +1,6 @@
 [project]
 name = "dotx"
-version = "2.1.0"
+version = "2.2.0"
 description = "A command-line tool to install a link-farm to your dotfiles"
 authors = [
     { name = "Wolf", email = "Wolf@zv.cx" }
