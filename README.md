@@ -424,10 +424,16 @@ This removes:
 
 **Note:** Add `.` at the end (`git clean -fdx .`) to limit cleanup to the current directory only.
 
-### What's next
+### Shell Completions
 
-Potential future enhancements:
-* Support for templates and variable substitution in dotfiles
-* Hooks system for running commands before/after installation
-* Conflict resolution strategies for overlapping packages
-* Shell completions for bash/zsh/fish
+dotx includes automatic shell completion via Typer:
+
+```bash
+# Install completion for your shell
+dotx --install-completion
+
+# Or show the completion script to customize it
+dotx --show-completion
+```
+
+Supports Bash, Zsh, Fish, and PowerShell automatically.
