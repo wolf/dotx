@@ -22,7 +22,7 @@ import click
 import typer
 from loguru import logger
 
-from dotx import __version__
+from dotx import __version__, __homepage__
 from dotx.database import InstallationDB
 from dotx.install import plan_install
 from dotx.options import set_option
@@ -31,7 +31,9 @@ from dotx.uninstall import plan_uninstall
 
 # Create the Typer app
 app = typer.Typer(
-    help="Manage a link farm: (un)install groups of links from source packages."
+    help="Manage a link farm: (un)install groups of links from source packages.",
+    no_args_is_help=True,
+    epilog=f"dotx version {__version__} | {__homepage__}",
 )
 
 
