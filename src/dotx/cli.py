@@ -21,6 +21,8 @@ from typing import Annotated, Optional
 import click
 import typer
 from loguru import logger
+from rich.console import Console
+from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskProgressColumn
 
 from dotx import __version__, __homepage__
 from dotx.database import InstallationDB
@@ -335,6 +337,41 @@ def show(
     logger.info("show finished")
 
 
+def _scan_symlinks(path: Path, max_depth: int, progress: Progress, task_id) -> list[tuple[Path, bool]]:
+    """
+    Scan a directory for symlinks up to a maximum depth.
+
+    Returns list of (symlink_path, is_dir) tuples.
+    """
+    symlinks = []
+
+    def _walk_limited(directory: Path, current_depth: int):
+        """Recursively walk directory up to max_depth."""
+        if current_depth > max_depth:
+            return
+
+        try:
+            for item in directory.iterdir():
+                # Update progress
+                progress.update(task_id, advance=1)
+
+                if item.is_symlink():
+                    is_dir = item.is_dir()  # Check if symlink points to directory
+                    symlinks.append((item, is_dir))
+                    # Don't descend into symlinked directories
+                    continue
+
+                # Recurse into regular directories
+                if item.is_dir() and not item.is_symlink():
+                    _walk_limited(item, current_depth + 1)
+
+        except (PermissionError, OSError) as e:
+            logger.debug(f"Skipping {directory}: {e}")
+
+    _walk_limited(path, 0)
+    return symlinks
+
+
 @app.command()
 def sync(
     ctx: click.Context,
@@ -342,36 +379,76 @@ def sync(
         bool,
         typer.Option("--dry-run", help="Show what would be added without modifying the database"),
     ] = False,
+    max_depth: Annotated[
+        Optional[int],
+        typer.Option(help="Maximum depth to scan (default: 1 for home, 3 for config)"),
+    ] = None,
+    scan_paths: Annotated[
+        Optional[list[Path]],
+        typer.Option(help="Additional paths to scan"),
+    ] = None,
+    simple: Annotated[
+        bool,
+        typer.Option(help="Simple scan: only home directory depth 1, skip ~/.config"),
+    ] = False,
 ):
-    """Rebuild database from filesystem (scan for existing symlinks)."""
+    """
+    Rebuild database from filesystem (scan for existing symlinks).
+
+    By default, scans:
+    - Top-level of home directory (depth=1)
+    - All of ~/.config (depth=3)
+
+    Use --simple to only scan home directory at depth 1.
+    Use --max-depth to override default depth for all paths.
+    Use --scan-paths to add additional directories to scan.
+    """
     logger.info("sync starting")
+    console = Console()
 
     # Get target from options
     target_path = Path(ctx.obj.get("TARGET", Path.home())) if ctx.obj else Path.home()
 
-    # Scan filesystem for symlinks
-    symlinks = []
-    for root, dirs, files in target_path.walk():
-        # Check if directories are symlinks
-        for dirname in dirs[:]:
-            dirpath = root / dirname
-            if dirpath.is_symlink():
-                symlinks.append((dirpath, True))  # (path, is_dir)
-                # Don't descend into symlinked directories
-                dirs.remove(dirname)
+    # Determine scan strategy
+    scan_configs = []
 
-        # Check if files are symlinks
-        for filename in files:
-            filepath = root / filename
-            if filepath.is_symlink():
-                symlinks.append((filepath, False))  # (path, is_dir)
+    if simple:
+        # Simple mode: just top-level of home
+        scan_configs.append((target_path, max_depth or 1))
+    else:
+        # Smart mode: top-level home + full ~/.config
+        scan_configs.append((target_path, max_depth or 1))
+        config_path = target_path / ".config"
+        if config_path.exists() and config_path.is_dir():
+            scan_configs.append((config_path, max_depth or 3))
+
+    # Add any user-specified paths
+    if scan_paths:
+        for path in scan_paths:
+            scan_configs.append((path, max_depth or 3))
+
+    # Scan filesystem for symlinks with progress
+    symlinks = []
+
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        BarColumn(),
+        TaskProgressColumn(),
+        console=console,
+    ) as progress:
+        scan_task = progress.add_task("Scanning for symlinks...", total=None)
+
+        for scan_path, depth in scan_configs:
+            progress.update(scan_task, description=f"Scanning {scan_path.name}...")
+            symlinks.extend(_scan_symlinks(scan_path, depth, progress, scan_task))
+
+    console.print(f"[green]✓[/green] Found {len(symlinks)} symlink(s)")
 
     if not symlinks:
-        typer.echo("No symlinks found in target directory.")
+        console.print("[yellow]No symlinks found.[/yellow]")
         logger.info("sync finished - no symlinks found")
         return
-
-    typer.echo(f"Found {len(symlinks)} symlink(s) in {target_path}")
 
     # Group symlinks by their resolved source parent directory (package)
     packages = {}
@@ -397,23 +474,23 @@ def sync(
             unknown.append((link_path, None, is_dir))
 
     # Show what was found
-    typer.echo(f"\nDiscovered {len(packages)} potential package(s):")
+    console.print(f"\n[bold]Discovered {len(packages)} potential package(s):[/bold]")
     for package_root, links in packages.items():
-        typer.echo(f"\n  {package_root}")
-        typer.echo(f"    {len(links)} symlink(s)")
+        console.print(f"  [cyan]{package_root}[/cyan]")
+        console.print(f"    {len(links)} symlink(s)")
 
     if unknown:
-        typer.echo(f"\n  Unknown/broken: {len(unknown)} symlink(s)")
+        console.print(f"  [yellow]Unknown/broken: {len(unknown)} symlink(s)[/yellow]")
 
     if dry_run:
-        typer.echo("\nDry run - no database changes made.")
+        console.print("\n[yellow]Dry run - no database changes made.[/yellow]")
         logger.info("sync finished - dry run")
         return
 
     # Ask for confirmation
-    typer.echo("\nThis will rebuild the database with the discovered installations.")
+    console.print("\n[bold]This will rebuild the database with the discovered installations.[/bold]")
     if not typer.confirm("Continue?"):
-        typer.echo("Cancelled.")
+        console.print("[yellow]Cancelled.[/yellow]")
         logger.info("sync finished - cancelled by user")
         return
 
@@ -434,7 +511,7 @@ def sync(
                 total_recorded += 1
                 logger.debug(f"Recorded {link_path} -> {package_root}")
 
-        typer.echo(f"\n✓ Recorded {total_recorded} installation(s) in database.")
+        console.print(f"\n[green]✓ Recorded {total_recorded} installation(s) in database.[/green]")
 
     logger.info("sync finished")
 

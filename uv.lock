@@ -124,6 +124,7 @@ dependencies = [
     { name = "click" },
     { name = "loguru" },
     { name = "pathspec" },
+    { name = "rich" },
     { name = "typer" },
 ]
 
@@ -145,6 +146,7 @@ requires-dist = [
     { name = "click", specifier = ">=8.1.7" },
     { name = "loguru", specifier = ">=0.7.0" },
     { name = "pathspec", specifier = ">=0.12.1" },
+    { name = "rich", specifier = ">=13.9.4" },
     { name = "typer", specifier = ">=0.15.1" },
 ]
 
