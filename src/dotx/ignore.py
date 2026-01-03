@@ -147,10 +147,16 @@ class IgnoreRules:
             return None
 
         # Combine all specs (later specs override earlier ones due to git semantics)
-        # PathSpec doesn't have a built-in combine, so we'll check against all
-        # For now, return the last (most specific) spec
-        # TODO: Properly combine specs if needed for complex scenarios
-        return specs[-1] if specs else None
+        # Extract patterns from all PathSpec objects and combine them
+        # Patterns are already in correct order: global → parents → closest
+        all_patterns = []
+        for spec in specs:
+            # Each PathSpec has a patterns list, extract the pattern strings
+            for pattern in spec.patterns:
+                all_patterns.append(pattern.pattern)  # type: ignore[attr-defined]
+
+        # Create a new combined PathSpec with all patterns in precedence order
+        return pathspec.GitIgnoreSpec.from_lines(all_patterns)
 
     def should_ignore(self, path: Path, relative_to: Path) -> bool:
         """
