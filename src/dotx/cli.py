@@ -492,6 +492,14 @@ def sync(
         bool,
         typer.Option(help="Simple scan: only home directory depth 1, skip ~/.config"),
     ] = False,
+    package_root: Annotated[
+        Optional[list[Path]],
+        typer.Option("--package-root", help="Only include packages under these directories (can specify multiple)"),
+    ] = None,
+    clean: Annotated[
+        bool,
+        typer.Option("--clean", help="Remove orphaned database entries (files that no longer exist)"),
+    ] = False,
 ):
     """
     Rebuild database from filesystem (scan for existing symlinks).
@@ -503,9 +511,12 @@ def sync(
     Use --simple to only scan home directory at depth 1.
     Use --max-depth to override default depth for all paths.
     Use --scan-paths to add additional directories to scan.
+    Use --package-root to filter packages to specific directories (recommended).
+    Use --clean to remove orphaned entries (like git fetch --prune).
     """
     logger.info("sync starting")
     console = Console()
+    verbose = is_verbose_mode(ctx)
 
     # Get target from options
     target_path = Path(ctx.obj.get("TARGET", Path.home())) if ctx.obj else Path.home()
@@ -564,26 +575,84 @@ def sync(
             # Assume package is parent directory of the resolved path
             # This is a heuristic - might need refinement
             if resolved.parent.exists():
-                package_root = resolved.parent
-                if package_root not in packages:
-                    packages[package_root] = []
-                packages[package_root].append((link_path, resolved, is_dir))
+                package_path = resolved.parent
+                if package_path not in packages:
+                    packages[package_path] = []
+                packages[package_path].append((link_path, resolved, is_dir))
             else:
                 unknown.append((link_path, resolved, is_dir))
         except (OSError, RuntimeError) as e:
-            logger.warning(f"Failed to resolve symlink {link_path}: {e}")
+            if verbose:
+                logger.warning(f"Failed to resolve symlink {link_path}: {e}")
             unknown.append((link_path, None, is_dir))
+
+    # Filter packages by package_root if specified
+    if package_root:
+        # Resolve all package roots for comparison
+        package_roots = [p.resolve() for p in package_root]
+        filtered_packages = {}
+        filtered_out = 0
+
+        for pkg_path, links in packages.items():
+            # Check if this package is under any of the specified roots
+            pkg_resolved = pkg_path.resolve()
+            is_under_root = any(
+                pkg_resolved == root or root in pkg_resolved.parents
+                for root in package_roots
+            )
+
+            if is_under_root:
+                filtered_packages[pkg_path] = links
+            else:
+                filtered_out += len(links)
+                logger.debug(f"Filtered out package {pkg_path} (not under --package-root)")
+
+        packages = filtered_packages
+
+        if filtered_out > 0:
+            console.print(f"[dim]Filtered out {filtered_out} symlink(s) not under --package-root[/dim]")
+
+    # Warn if no package_root specified and database doesn't exist or is empty
+    if not package_root:
+        with InstallationDB() as db:
+            existing_packages = db.get_all_packages()
+            if not existing_packages:
+                console.print(
+                    "[yellow]⚠ Warning: No --package-root specified and database is empty.[/yellow]"
+                )
+                console.print(
+                    "[yellow]  Consider using --package-root to filter packages (e.g., --package-root ~/dotfiles)[/yellow]\n"
+                )
 
     # Show what was found
     console.print(f"\n[bold]Discovered {len(packages)} potential package(s):[/bold]")
-    for package_root, links in packages.items():
-        console.print(f"  [cyan]{package_root}[/cyan]")
+    for package_path, links in packages.items():
+        console.print(f"  [cyan]{package_path}[/cyan]")
         console.print(f"    {len(links)} symlink(s)")
 
     if unknown:
         console.print(f"  [yellow]Unknown/broken: {len(unknown)} symlink(s)[/yellow]")
 
     if dry_run:
+        # Preview clean operation if requested
+        if clean:
+            console.print("\n[cyan]Would clean orphaned entries:[/cyan]")
+            with InstallationDB() as db:
+                all_packages = db.get_all_packages()
+                total_would_clean = 0
+
+                for pkg_info in all_packages:
+                    pkg_path = Path(pkg_info["package_name"])
+                    orphaned = db.get_orphaned_entries(pkg_path)
+                    if orphaned:
+                        total_would_clean += len(orphaned)
+                        console.print(f"  {pkg_path.name}: {len(orphaned)} orphaned entry(ies)")
+
+                if total_would_clean > 0:
+                    console.print(f"[yellow]Would remove {total_would_clean} orphaned entry(ies).[/yellow]")
+                else:
+                    console.print("[green]No orphaned entries to clean.[/green]")
+
         console.print("\n[yellow]Dry run - no database changes made.[/yellow]")
         logger.info("sync finished - dry run")
         return
@@ -599,7 +668,7 @@ def sync(
     with InstallationDB() as db:
         total_recorded = 0
 
-        for package_root, links in packages.items():
+        for package_path, links in packages.items():
             for link_path, resolved, is_dir in links:
                 # Determine link type
                 if is_dir:
@@ -608,11 +677,30 @@ def sync(
                     link_type = "file"
 
                 # Record in database
-                db.record_installation(package_root, link_path, link_type)
+                db.record_installation(package_path, link_path, link_type)
                 total_recorded += 1
-                logger.debug(f"Recorded {link_path} -> {package_root}")
+                logger.debug(f"Recorded {link_path} -> {package_path}")
 
         console.print(f"\n[green]✓ Recorded {total_recorded} installation(s) in database.[/green]")
+
+        # Clean orphaned entries if requested
+        if clean:
+            console.print("\n[cyan]Cleaning orphaned entries...[/cyan]")
+            all_packages = db.get_all_packages()
+            total_cleaned = 0
+
+            for pkg_info in all_packages:
+                pkg_path = Path(pkg_info["package_name"])
+                cleaned = db.clean_orphaned_entries(pkg_path)
+                if cleaned > 0:
+                    total_cleaned += cleaned
+                    if verbose:
+                        console.print(f"  Cleaned {cleaned} orphaned entry(ies) from {pkg_path.name}")
+
+            if total_cleaned > 0:
+                console.print(f"[green]✓ Removed {total_cleaned} orphaned entry(ies).[/green]")
+            else:
+                console.print("[green]✓ No orphaned entries found.[/green]")
 
     logger.info("sync finished")
 

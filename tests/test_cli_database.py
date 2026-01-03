@@ -513,3 +513,129 @@ def test_database_schema_version(tmp_path):
         version_row = cursor.fetchone()
         assert version_row is not None
         assert version_row["value"] == "1"
+
+
+def test_cli_sync_clean_dry_run(tmp_path, monkeypatch):
+    """Test 'dotx sync --clean --dry-run' shows what would be cleaned."""
+    # Override XDG_DATA_HOME
+    data_dir = tmp_path / "data"
+    data_dir.mkdir()
+    monkeypatch.setenv("XDG_DATA_HOME", str(data_dir))
+
+    # Create and install a package
+    source = tmp_path / "source"
+    source.mkdir()
+    (source / "file1").write_text("content1")
+    (source / "file2").write_text("content2")
+
+    target = tmp_path / "target"
+    target.mkdir()
+
+    runner = CliRunner()
+
+    # Install package
+    result = runner.invoke(app, [f"--target={target}", "install", str(source)])
+    assert result.exit_code == 0
+
+    # Verify both files are installed
+    assert (target / "file1").exists()
+    assert (target / "file2").exists()
+
+    # Delete one symlink manually (simulating orphaned entry)
+    (target / "file1").unlink()
+
+    # Sync --clean --dry-run should show what would be cleaned
+    result = runner.invoke(
+        app, [f"--target={target}", "sync", "--dry-run", "--clean", "--package-root", str(source.parent)]
+    )
+
+    assert result.exit_code == 0
+    assert "Would clean orphaned entries" in result.output
+    assert "Would remove 1 orphaned entry(ies)" in result.output
+    assert "Dry run" in result.output
+
+
+def test_cli_sync_clean(tmp_path, monkeypatch):
+    """Test 'dotx sync --clean' removes orphaned database entries."""
+    # Override XDG_DATA_HOME
+    data_dir = tmp_path / "data"
+    data_dir.mkdir()
+    monkeypatch.setenv("XDG_DATA_HOME", str(data_dir))
+
+    # Create and install a package
+    source = tmp_path / "source"
+    source.mkdir()
+    (source / "file1").write_text("content1")
+    (source / "file2").write_text("content2")
+
+    target = tmp_path / "target"
+    target.mkdir()
+
+    runner = CliRunner()
+
+    # Install package
+    result = runner.invoke(app, [f"--target={target}", "install", str(source)])
+    assert result.exit_code == 0
+
+    # Verify both files are installed
+    assert (target / "file1").exists()
+    assert (target / "file2").exists()
+
+    # Check database has 2 entries
+    with InstallationDB() as db:
+        installations = db.get_installations(source)
+        assert len(installations) == 2
+
+    # Delete one symlink manually (simulating orphaned entry)
+    (target / "file1").unlink()
+
+    # Sync --clean should remove the orphaned entry
+    result = runner.invoke(
+        app,
+        [f"--target={target}", "sync", "--clean", "--package-root", str(source.parent)],
+        input="y\n",
+    )
+
+    assert result.exit_code == 0
+    assert "Cleaning orphaned entries" in result.output
+    assert "Removed 1 orphaned entry(ies)" in result.output
+
+    # Check database now has only 1 entry
+    with InstallationDB() as db:
+        installations = db.get_installations(source)
+        assert len(installations) == 1
+        # The remaining entry should be for file2
+        assert installations[0]["target_path"] == str((target / "file2").absolute())
+
+
+def test_cli_sync_clean_no_orphans(tmp_path, monkeypatch):
+    """Test 'dotx sync --clean' when there are no orphaned entries."""
+    # Override XDG_DATA_HOME
+    data_dir = tmp_path / "data"
+    data_dir.mkdir()
+    monkeypatch.setenv("XDG_DATA_HOME", str(data_dir))
+
+    # Create and install a package
+    source = tmp_path / "source"
+    source.mkdir()
+    (source / "file1").write_text("content1")
+
+    target = tmp_path / "target"
+    target.mkdir()
+
+    runner = CliRunner()
+
+    # Install package
+    result = runner.invoke(app, [f"--target={target}", "install", str(source)])
+    assert result.exit_code == 0
+
+    # Sync --clean with no orphaned entries
+    result = runner.invoke(
+        app,
+        [f"--target={target}", "sync", "--clean", "--package-root", str(source.parent)],
+        input="y\n",
+    )
+
+    assert result.exit_code == 0
+    assert "Cleaning orphaned entries" in result.output
+    assert "No orphaned entries found" in result.output

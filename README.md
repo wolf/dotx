@@ -213,15 +213,78 @@ Installations:
 
 #### Rebuild database from filesystem
 
-If you have existing dotfile installations and an empty or missing database, use `sync` to rebuild it:
+If you have existing dotfile installations and an empty or missing database, use `sync` to rebuild it.
+
+##### The Problem: Unwanted Symlinks
+
+By default, `sync` scans your home directory and `~/.config` for **all** symlinks. This can discover symlinks you don't want to track as dotfiles packages, such as:
+- System symlinks in `~/Library/` (macOS)
+- Application symlinks in `/Applications/`
+- IDE or tool-generated symlinks
+- Homebrew-managed symlinks
+
+For example, without filtering you might see:
+```bash
++$ dotx sync --dry-run
+✓ Found 44 symlink(s)
+
+Discovered 25 potential package(s):
+  /Users/wolf/dotfiles/bash        # ✓ Want this
+    5 symlink(s)
+  /Users/wolf/dotfiles/vim          # ✓ Want this
+    8 symlink(s)
+  /Users/wolf/Library               # ✗ Don't want this!
+    1 symlink(s)
+  /Applications/Raycast.app/...    # ✗ Don't want this!
+    1 symlink(s)
+```
+
+##### The Solution: `--package-root`
+
+Use `--package-root` to filter packages to **only** those under specific directories. This is **strongly recommended** to avoid tracking unwanted symlinks:
 
 ```bash
-# Preview what would be added to database
-+$ dotx sync --dry-run
+# Filter to only your dotfiles directory
++$ dotx sync --dry-run --package-root ~/dotfiles
+✓ Found 44 symlink(s)
+Filtered out 6 symlink(s) not under --package-root
 
-# Interactively rebuild database from filesystem
-+$ dotx sync
-Found 15 symlink(s) in /Users/wolf
+Discovered 3 potential package(s):
+  /Users/wolf/dotfiles/bash
+    5 symlink(s)
+  /Users/wolf/dotfiles/vim
+    8 symlink(s)
+  /Users/wolf/dotfiles/git
+    2 symlink(s)
+```
+
+You can specify multiple roots if your packages are in different locations:
+
+```bash
++$ dotx sync --package-root ~/dotfiles --package-root ~/work/configs
+```
+
+##### Safety Warning
+
+If you run `sync` without `--package-root` and have an empty database, you'll see a warning:
+
+```bash
++$ dotx sync --dry-run
+✓ Found 44 symlink(s)
+⚠ Warning: No --package-root specified and database is empty.
+  Consider using --package-root to filter packages (e.g., --package-root ~/dotfiles)
+```
+
+##### Complete Example
+
+```bash
+# Preview what will be synced (recommended first step)
++$ dotx sync --dry-run --package-root ~/dotfiles
+
+# After reviewing, sync for real
++$ dotx sync --package-root ~/dotfiles
+✓ Found 15 symlink(s)
+Filtered out 0 symlink(s) not under --package-root
 
 Discovered 3 potential package(s):
   /Users/wolf/dotfiles/bash
@@ -237,7 +300,50 @@ Continue? [y/N]: y
 ✓ Recorded 15 installation(s) in database.
 ```
 
-The `sync` command scans your home directory for symlinks and attempts to determine which package they belong to, then rebuilds the database accordingly.
+**Note:** The `sync` command is **additive** - it updates existing entries and adds new ones, but doesn't delete entries for packages not found. This means running sync with `--package-root` won't remove other packages from your database.
+
+##### Cleaning Orphaned Entries with `--clean`
+
+Over time, your database may accumulate **orphaned entries** - records for symlinks that no longer exist on the filesystem. Use `--clean` to remove these automatically, similar to `git fetch --prune`:
+
+```bash
+# Preview what would be cleaned
++$ dotx sync --dry-run --clean --package-root ~/dotfiles
+✓ Found 15 symlink(s)
+
+Would clean orphaned entries:
+  bash: 2 orphaned entry(ies)
+  vim: 1 orphaned entry(ies)
+Would remove 3 orphaned entry(ies).
+
+Dry run - no database changes made.
+
+# Clean for real
++$ dotx sync --clean --package-root ~/dotfiles
+✓ Found 15 symlink(s)
+Filtered out 0 symlink(s) not under --package-root
+
+Discovered 3 potential package(s):
+  /Users/wolf/dotfiles/bash
+    5 symlink(s)
+  ...
+
+This will rebuild the database with the discovered installations.
+Continue? [y/N]: y
+
+✓ Recorded 15 installation(s) in database.
+
+Cleaning orphaned entries...
+✓ Removed 3 orphaned entry(ies).
+```
+
+**When to use `--clean`:**
+- After manually removing symlinks
+- After uninstalling packages without using `dotx uninstall`
+- During regular maintenance to keep database accurate
+- When migrating or reorganizing dotfiles
+
+**Important:** `--clean` removes database entries for files that don't exist. Always preview with `--dry-run` first to ensure you're not removing entries you want to keep.
 
 ### How it works
 
