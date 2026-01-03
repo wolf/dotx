@@ -1,5 +1,7 @@
 ## The Basic Idea
 
+> **Comparing dotfile managers?** See [ALTERNATIVES.md](ALTERNATIVES.md) for a detailed comparison of dotx vs GNU Stow, chezmoi, YADM, dotbot, and others.
+
 ### What `dotx` does; what it's _for_
 #### The problem
 
