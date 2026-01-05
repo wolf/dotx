@@ -286,12 +286,16 @@ def test_cli_list_with_packages(tmp_path, monkeypatch):
     result = runner.invoke(app, [f"--target={target}", "install", str(source2)])
     assert result.exit_code == 0
 
-    # List packages
-    result = runner.invoke(app, ["list"])
+    # List packages (use --as-commands for reliable testing)
+    result = runner.invoke(app, ["list", "--as-commands"])
 
     assert result.exit_code == 0
-    assert "source1" in result.output
-    assert "source2" in result.output
+    assert f"dotx install {source1}" in result.output
+    assert f"dotx install {source2}" in result.output
+
+    # Also verify table format shows count
+    result = runner.invoke(app, ["list"])
+    assert result.exit_code == 0
     assert "Total: 2 package(s)" in result.output
 
 
@@ -757,3 +761,62 @@ def test_v1_schema_detection(tmp_path):
         assert "dotx sync --package-root" in error_msg
         assert str(db_path) in error_msg
         assert "rm" in error_msg  # Should tell user to delete old DB
+
+
+def test_list_shows_correct_package_names_after_install(tmp_path, monkeypatch):
+    """Test that 'dotx list' shows semantic package names, not implementation details.
+
+    This is a regression test for the bug where dotx list showed 'dot-config'
+    instead of actual package names like 'bash' or 'helix'.
+    """
+    # Override XDG_DATA_HOME
+    data_dir = tmp_path / "data"
+    data_dir.mkdir()
+    monkeypatch.setenv("XDG_DATA_HOME", str(data_dir))
+
+    # Create a dotfiles structure with subdirectories (like real packages)
+    dotfiles = tmp_path / "dotfiles"
+    dotfiles.mkdir()
+
+    # Package 1: bash with simple structure
+    bash = dotfiles / "bash"
+    bash.mkdir()
+    (bash / "dot-bashrc").write_text("# bashrc")
+    (bash / "dot-bash_profile").write_text("# bash_profile")
+
+    # Package 2: helix with nested structure (dot-config subdirectory)
+    helix = dotfiles / "helix"
+    helix.mkdir()
+    helix_config = helix / "dot-config" / "helix"
+    helix_config.mkdir(parents=True)
+    (helix_config / "config.toml").write_text("# helix config")
+    (helix_config / "languages.toml").write_text("# helix languages")
+
+    # Target directory
+    target = tmp_path / "home"
+    target.mkdir()
+
+    runner = CliRunner()
+
+    # Install both packages
+    result = runner.invoke(app, [f"--target={target}", "install", str(bash)])
+    assert result.exit_code == 0, f"bash install failed: {result.output}"
+
+    result = runner.invoke(app, [f"--target={target}", "install", str(helix)])
+    assert result.exit_code == 0, f"helix install failed: {result.output}"
+
+    # Test --as-commands format (plain text, easy to verify)
+    result = runner.invoke(app, ["list", "--as-commands"])
+    assert result.exit_code == 0, f"list --as-commands failed: {result.output}"
+
+    # Should output install commands with correct package paths
+    assert f"dotx install {bash}" in result.output, f"Expected 'dotx install {bash}', got: {result.output}"
+    assert f"dotx install {helix}" in result.output, f"Expected 'dotx install {helix}', got: {result.output}"
+
+    # Should NOT show implementation details like 'dot-config'
+    assert "dot-config" not in result.output, f"Should not show 'dot-config' in output, got: {result.output}"
+
+    # Also verify the table format shows package names (even if truncated)
+    result = runner.invoke(app, ["list"])
+    assert result.exit_code == 0, f"list failed: {result.output}"
+    assert "2 package(s)" in result.output  # Should show 2 packages

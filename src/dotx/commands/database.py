@@ -102,10 +102,11 @@ def register_commands(app: typer.Typer):
                 table.add_column("Last Install", style="green")
 
                 for pkg in packages:
-                    package_name = pkg["package_name"]  # Already the semantic name
+                    # Show full package path (package_root / package_name) as documented
+                    package_path = str(Path(pkg["package_root"]) / pkg["package_name"])
                     file_count = str(pkg["file_count"])
                     latest = _format_timestamp(pkg["latest_install"])
-                    table.add_row(package_name, file_count, latest)
+                    table.add_row(package_path, file_count, latest)
 
                 console.print()
                 console.print(table)
@@ -332,27 +333,50 @@ def register_commands(app: typer.Typer):
                 unknown.append((link_path, None, is_dir))
 
         # Filter packages by package_root if specified
+        # When package_root is specified, we can also correctly infer package names
         if package_root:
             # Resolve all package roots for comparison
             package_roots = [p.resolve() for p in package_root]
-            filtered_packages = {}
+
+            # Re-group packages by semantic package name (first directory under package_root)
+            regrouped_packages = {}
             filtered_out = 0
 
             for pkg_path, links in packages.items():
-                # Check if this package is under any of the specified roots
-                pkg_resolved = pkg_path.resolve()
-                is_under_root = any(
-                    pkg_resolved == root or root in pkg_resolved.parents
-                    for root in package_roots
-                )
+                # For each link, determine the semantic package name
+                for link_path, resolved, is_dir in links:
+                    # Find which package_root this link belongs to
+                    matched_root = None
+                    resolved_abs = resolved.resolve()
 
-                if is_under_root:
-                    filtered_packages[pkg_path] = links
-                else:
-                    filtered_out += len(links)
-                    logger.debug(f"Filtered out package {pkg_path} (not under --package-root)")
+                    for root in package_roots:
+                        if resolved_abs == root or root in resolved_abs.parents:
+                            matched_root = root
+                            break
 
-            packages = filtered_packages
+                    if matched_root:
+                        try:
+                            # Get path relative to package_root
+                            rel_path = resolved_abs.relative_to(matched_root)
+                            # Package name is the first component
+                            semantic_package_name = rel_path.parts[0] if rel_path.parts else None
+
+                            if semantic_package_name:
+                                # Use matched_root / semantic_package_name as the key
+                                semantic_package_path = matched_root / semantic_package_name
+
+                                if semantic_package_path not in regrouped_packages:
+                                    regrouped_packages[semantic_package_path] = []
+                                regrouped_packages[semantic_package_path].append((link_path, resolved, is_dir))
+                            else:
+                                filtered_out += 1
+                        except (ValueError, IndexError):
+                            filtered_out += 1
+                    else:
+                        filtered_out += 1
+                        logger.debug(f"Filtered out {link_path} (not under --package-root)")
+
+            packages = regrouped_packages
 
             if filtered_out > 0:
                 console.print(f"[dim]Filtered out {filtered_out} symlink(s) not under --package-root[/dim]")
