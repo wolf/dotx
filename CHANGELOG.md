@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.1.1] - 2026-01-05
+
+### Fixed
+- **Critical bug**: `dotx list` now shows semantic package names instead of implementation details like "dot-config"
+- `dotx sync --package-root` now correctly infers package names as the first directory component under package root
+- `dotx list` output now matches README documentation (shows full package paths)
+
 ## [3.1.0] - 2026-01-05
 
 ### Added
@@ -169,7 +176,8 @@ EOF
 dotx install bash
 ```
 
-[Unreleased]: https://github.com/wolf/dotx/compare/v3.1.0...HEAD
+[Unreleased]: https://github.com/wolf/dotx/compare/v3.1.1...HEAD
+[3.1.1]: https://github.com/wolf/dotx/compare/v3.1.0...v3.1.1
 [3.1.0]: https://github.com/wolf/dotx/compare/v3.0.0...v3.1.0
 [3.0.0]: https://github.com/wolf/dotx/compare/v2.2.1...v3.0.0
 [2.2.1]: https://github.com/wolf/dotx/compare/v2.2.0...v2.2.1
