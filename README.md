@@ -304,6 +304,75 @@ Continue? [y/N]: y
 
 **Note:** The `sync` command is **additive** - it updates existing entries and adds new ones, but doesn't delete entries for packages not found. This means running sync with `--package-root` won't remove other packages from your database.
 
+### Shared Directories: How `.config` and Friends Work
+
+When multiple packages need to install files into the same directory (like `~/.config`), that directory must be a **real directory**, not a symlink. Otherwise, only one package could use it.
+
+`dotx` automatically handles this using **always-create patterns** - directories that are always created as real directories instead of being symlinked.
+
+#### Built-in Always-Create Patterns
+
+These directories are automatically created as real directories:
+
+**XDG Base Directories:**
+- `.config` - Application configuration files
+- `.local` - User-local data
+- `.local/share` - User-specific data files
+- `.local/bin` - User-specific executables
+- `.cache` - Non-essential cached data
+
+**Security-Sensitive Directories:**
+- `.ssh` - SSH keys and configuration
+- `.gnupg` - GPG keys and configuration
+
+For example, if you have both a `vim` and `helix` package that install into `.config`:
+
+```bash
++$ tree -L 2 dotfiles/
+dotfiles/
+├── vim/
+│   └── dot-config/
+│       └── nvim/
+└── helix/
+    └── dot-config/
+        └── helix/
+
++$ dotx install vim helix
+
++$ ls -la ~/.config/
+drwxr-xr-x  .config/         # Real directory (not a symlink!)
+lrwxr-xr-x  nvim -> .../vim/dot-config/nvim/
+lrwxr-xr-x  helix -> .../helix/dot-config/helix/
+```
+
+Notice that `.config` itself is a real directory, allowing both packages to install their subdirectories as symlinks within it.
+
+#### Custom Always-Create Patterns (Advanced)
+
+For most users, the built-in patterns are sufficient. However, if you have custom shared directories, you can create `.always-create` files using the same syntax as `.dotxignore`:
+
+**Package-local** (in your package directory):
+```bash
++$ cat > mypackage/.always-create <<EOF
+# Custom shared directory
+.myapp
+EOF
+```
+
+**User-global** (applies to all packages):
+```bash
++$ mkdir -p ~/.config/dotx
++$ cat > ~/.config/dotx/always-create <<EOF
+# My custom shared directories
+.workspace
+.tools
+EOF
+```
+
+Pattern precedence: **built-in → user global → package-local** (later patterns can override earlier ones using `!negation`)
+
+**Note:** Patterns use leading `/` for root-level matching (e.g., `/.config` matches only `.config` at package root, not `subdir/.config`).
+
 ##### Cleaning Orphaned Entries with `--clean`
 
 Over time, your database may accumulate **orphaned entries** - records for symlinks that no longer exist on the filesystem. Use `--clean` to remove these automatically, similar to `git fetch --prune`:

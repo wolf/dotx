@@ -7,6 +7,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.0.0] - 2026-01-05
+
+### Added
+- **Always-create patterns**: Shared directories like `.config` are now automatically created as real directories instead of symlinks, allowing multiple packages to install files into them
+- Built-in always-create patterns for XDG directories (`.config`, `.local/share`, `.local/bin`, `.cache`)
+- Built-in always-create patterns for security-sensitive directories (`.ssh`, `.gnupg`)
+- Support for custom always-create patterns via `.always-create` files (package-local and user-global at `~/.config/dotx/always-create`)
+- Hierarchical pattern matching system with precedence: built-in → user config → package-local
+- Built-in `.dotxignore` patterns (replaces hardcoded ignore list)
+- 15 comprehensive tests for always-create functionality
+
+### Changed
+- **Database schema upgraded to v2** with new columns for package identity tracking:
+  - `package_root`: Root directory containing all dotfiles
+  - `package_name`: Semantic package name (e.g., `helix` instead of `helix/dot-config`)
+  - `source_package_root`: Full path to package source
+- Database automatically migrates from v1 to v2 on first access (no user action needed)
+- Install logic now checks always-create patterns at exact depth (prevents subdirectory matches)
+- Refactored `IgnoreRules` to use new `HierarchicalPatternMatcher` class
+- Improved pattern matching to support gitignore-style patterns with proper precedence
+
+### Fixed
+- Shared directories like `.config` can now be used by multiple packages correctly
+- Package names in database now reflect semantic names instead of implementation details
+- Directory patterns (e.g., `node_modules/`) now match correctly with trailing slashes
+
+### Migration Notes
+No manual migration needed! The database automatically upgrades from v1 to v2 when you run any dotx command. The upgrade:
+- Adds new schema_version table
+- Adds package_root, package_name, and source_package_root columns
+- Infers package names from existing 'package' column paths
+- Preserves all existing installation records
+
+If you previously had issues with multiple packages trying to use `.config`, reinstalling will fix it:
+```bash
+dotx uninstall --all
+dotx install [your-packages]
+```
+
 ## [2.2.1] - 2026-01-03
 
 ### Fixed
@@ -114,7 +153,8 @@ EOF
 dotx install bash
 ```
 
-[Unreleased]: https://github.com/wolf/dotx/compare/v2.2.1...HEAD
+[Unreleased]: https://github.com/wolf/dotx/compare/v3.0.0...HEAD
+[3.0.0]: https://github.com/wolf/dotx/compare/v2.2.1...v3.0.0
 [2.2.1]: https://github.com/wolf/dotx/compare/v2.2.0...v2.2.1
 [2.2.0]: https://github.com/wolf/dotx/compare/v2.1.0...v2.2.0
 [2.1.0]: https://github.com/wolf/dotx/compare/v2.0.4...v2.1.0
