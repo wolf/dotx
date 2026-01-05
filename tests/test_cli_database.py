@@ -714,3 +714,46 @@ def test_package_grouping_multiple_source_dirs(tmp_path):
         pkg = packages[0]
         assert pkg["package_name"] == "shells"
         assert pkg["file_count"] == 3  # Should count all 3 files together
+
+
+def test_v1_schema_detection(tmp_path):
+    """Test that v1 database schema is detected and rejected with helpful error."""
+    import sqlite3
+
+    db_path = tmp_path / "test.db"
+
+    # Create a v1 database schema (old format without package_root, package_name, source_package_root)
+    conn = sqlite3.connect(str(db_path))
+    conn.executescript("""
+        CREATE TABLE installations (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            package_name TEXT NOT NULL,
+            target_path TEXT NOT NULL UNIQUE,
+            link_type TEXT NOT NULL,
+            installed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE INDEX idx_package_name ON installations(package_name);
+
+        CREATE TABLE metadata (
+            key TEXT PRIMARY KEY,
+            value TEXT NOT NULL
+        );
+
+        INSERT INTO metadata (key, value) VALUES ('schema_version', '1');
+    """)
+    conn.commit()
+    conn.close()
+
+    # Try to open with InstallationDB - should raise RuntimeError with upgrade instructions
+    try:
+        with InstallationDB(db_path) as db:
+            pass
+        assert False, "Should have raised RuntimeError for v1 schema"
+    except RuntimeError as e:
+        error_msg = str(e)
+        # Verify error message contains key information
+        assert "Incompatible database schema detected" in error_msg
+        assert "dotx sync --package-root" in error_msg
+        assert str(db_path) in error_msg
+        assert "rm" in error_msg  # Should tell user to delete old DB

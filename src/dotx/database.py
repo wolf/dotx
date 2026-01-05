@@ -144,9 +144,20 @@ class InstallationDB:
         Create database schema if it doesn't exist.
 
         Loads and executes schema from installed-schema.sql file.
+        Detects incompatible v1 databases and provides clear upgrade instructions.
         """
         if not self.conn:
             raise RuntimeError("Database not connected")
+
+        # Check if installations table exists (detect v1 schema before trying to upgrade)
+        cursor = self.conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='installations'"
+        )
+        table_exists = cursor.fetchone() is not None
+
+        if table_exists:
+            # Table exists - verify it has v2 schema before proceeding
+            self._verify_schema_version()
 
         # Load schema from SQL file
         schema_path = Path(__file__).parent / "installed-schema.sql"
@@ -157,6 +168,34 @@ class InstallationDB:
         self.conn.commit()
 
         logger.debug("Database schema initialized")
+
+    def _verify_schema_version(self):
+        """
+        Verify database schema is v2 by checking for required columns.
+
+        Raises RuntimeError with upgrade instructions if v1 schema detected.
+        """
+        if not self.conn:
+            raise RuntimeError("Database not connected")
+
+        # Check if installations table has v2 columns
+        cursor = self.conn.execute("PRAGMA table_info(installations)")
+        columns = {row["name"] for row in cursor.fetchall()}
+
+        required_v2_columns = {"package_root", "package_name", "source_package_root"}
+        missing_columns = required_v2_columns - columns
+
+        if missing_columns:
+            # Old v1 database detected
+            raise RuntimeError(
+                f"Incompatible database schema detected (v1).\n\n"
+                f"The database at {self.db_path} is using an old schema that is no longer supported.\n\n"
+                f"To upgrade:\n"
+                f"  1. Delete the old database: rm {self.db_path}\n"
+                f"  2. Rebuild it from your existing installations:\n"
+                f"     dotx sync --package-root ~/dotfiles\n\n"
+                f"(Replace ~/dotfiles with the path to your dotfiles directory)\n"
+            )
 
     def record_installation(
         self,

@@ -34,11 +34,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Directory patterns (e.g., `node_modules/`) now match correctly with trailing slashes
 
 ### Migration Notes
-No manual migration needed! The database automatically upgrades from v1 to v2 when you run any dotx command. The upgrade:
-- Adds new schema_version table
-- Adds package_root, package_name, and source_package_root columns
-- Infers package names from existing 'package' column paths
-- Preserves all existing installation records
+**Upgrading from v2.x (schema v1):**
+
+The v1 database schema is no longer supported. If you have an existing v1 database, dotx will detect this and display upgrade instructions.
+
+To upgrade:
+1. Delete the old database: `rm ~/.local/share/dotx/installed.db`
+2. Rebuild it from your existing installations:
+   ```bash
+   dotx sync --package-root ~/dotfiles
+   ```
 
 If you previously had issues with multiple packages trying to use `.config`, reinstalling will fix it:
 ```bash
