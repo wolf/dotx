@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.1.0] - 2026-01-05
+
+### Added
+- **`dotx path` command**: Get source path of installed packages for Unix composition (`tree $(dotx path bash)`)
+- **`dotx which` command**: Find which package owns a target file (`dotx which ~/.bashrc`)
+- Support for `--package-root` filter in `dotx path` to disambiguate packages
+
+### Fixed
+- Database schema v1 detection now happens before attempting to apply v2 schema, preventing confusing SQLite errors
+- Clear error message with upgrade instructions when v1 database is detected
+
 ## [3.0.0] - 2026-01-05
 
 ### Added
@@ -158,7 +169,8 @@ EOF
 dotx install bash
 ```
 
-[Unreleased]: https://github.com/wolf/dotx/compare/v3.0.0...HEAD
+[Unreleased]: https://github.com/wolf/dotx/compare/v3.1.0...HEAD
+[3.1.0]: https://github.com/wolf/dotx/compare/v3.0.0...v3.1.0
 [3.0.0]: https://github.com/wolf/dotx/compare/v2.2.1...v3.0.0
 [2.2.1]: https://github.com/wolf/dotx/compare/v2.2.0...v2.2.1
 [2.2.0]: https://github.com/wolf/dotx/compare/v2.1.0...v2.2.0
