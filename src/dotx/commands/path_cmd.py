@@ -1,4 +1,4 @@
-"""Path command for dotx CLI - get source path of installed package."""
+"""Path and which commands for dotx CLI - query installed packages."""
 
 from pathlib import Path
 from typing import Annotated
@@ -9,7 +9,7 @@ from loguru import logger
 from dotx.database import InstallationDB
 
 
-def register_command(app: typer.Typer):
+def register_commands(app: typer.Typer):
     """Register the path command with the Typer app."""
 
     @app.command()
@@ -67,3 +67,42 @@ def register_command(app: typer.Typer):
                     typer.echo(source_root)
 
         logger.info("path command finished")
+
+    @app.command()
+    def which(
+        target_file: Annotated[
+            Path,
+            typer.Argument(help="Target file to find package for"),
+        ],
+    ):
+        """
+        Print the package name that owns a target file.
+
+        Simple output for composition: dotx path $(dotx which ~/.bashrc)
+
+        Exit codes:
+          0 - File found, package name printed
+          1 - File not found in database
+        """
+        logger.info(f"which command for file: {target_file}")
+
+        # Make path absolute for database lookup
+        target_abs = target_file.absolute()
+
+        with InstallationDB() as db:
+            # Query database for this target path
+            # We need to search through all installations to find matching target_path
+            all_packages = db.get_all_packages()
+
+            for pkg in all_packages:
+                installations = db.get_installations(Path(pkg["package_root"]), pkg["package_name"])
+                for install in installations:
+                    if Path(install["target_path"]) == target_abs:
+                        # Found it - print package name and exit
+                        typer.echo(pkg["package_name"])
+                        logger.info("which command finished")
+                        return
+
+            # Not found
+            logger.error(f"File '{target_file}' not managed by any package")
+            raise typer.Exit(code=1)

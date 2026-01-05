@@ -112,7 +112,7 @@ from dotx.commands import install_cmd, uninstall_cmd, database, path_cmd
 install_cmd.register_command(app)
 uninstall_cmd.register_command(app)
 database.register_commands(app)
-path_cmd.register_command(app)
+path_cmd.register_commands(app)
 
 
 def cli():

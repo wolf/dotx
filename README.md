@@ -51,6 +51,7 @@ Commands:
   verify     Verify installations against filesystem
   show       Show detailed installation information for a package
   path       Get source path of an installed package
+  which      Find which package owns a target file
   sync       Rebuild database from filesystem (interactive)
 ```
 So if you had a source package (a directory containing files) named `"bash"` containing `"dot-bashrc"` and
@@ -237,6 +238,28 @@ Get the source path of an installed package for composition with other Unix tool
 The command prints the source directory path(s) where package files are located. If a package has files from multiple source directories (like the shells example with subdirectories), all unique paths are printed, one per line.
 
 Exit codes: 0 if package found, 1 if not found.
+
+#### Find which package owns a file
+
+Find which package installed a specific file:
+
+```bash
++$ dotx which ~/.bashrc
+bash
+
++$ dotx which ~/.config/helix/config.toml
+helix
+
+# Compose with other commands
++$ dotx path $(dotx which ~/.vimrc)
+/Users/wolf/builds/dotfiles/vim
+
++$ tree $(dotx path $(dotx which ~/.zshrc))
+```
+
+Simple output (just the package name) for easy composition with other Unix tools.
+
+Exit codes: 0 if file found, 1 if not managed by any package.
 
 #### Rebuild database from filesystem
 
