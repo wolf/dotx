@@ -142,3 +142,87 @@ def test_path_command_with_package_root_filter(tmp_path, monkeypatch):
     assert result.exit_code == 0
     assert str(bash2.resolve()) in result.output
     assert str(bash1.resolve()) not in result.output
+
+
+def test_which_command_found(tmp_path, monkeypatch):
+    """Test 'dotx which' with a file that exists in database."""
+    # Override XDG_DATA_HOME
+    data_dir = tmp_path / "data"
+    data_dir.mkdir()
+    monkeypatch.setenv("XDG_DATA_HOME", str(data_dir))
+
+    # Create package structure
+    package_root = tmp_path / "dotfiles"
+    package_root.mkdir()
+    package_dir = package_root / "bash"
+    package_dir.mkdir()
+
+    target_file = tmp_path / ".bashrc"
+
+    # Record installation
+    with InstallationDB() as db:
+        db.record_installation(
+            package_root=package_root,
+            package_name="bash",
+            source_package_root=package_dir,
+            target_path=target_file,
+            link_type="file",
+        )
+
+    runner = CliRunner()
+    result = runner.invoke(app, ["which", str(target_file)])
+
+    assert result.exit_code == 0
+    assert result.output.strip() == "bash"
+
+
+def test_which_command_not_found(tmp_path, monkeypatch):
+    """Test 'dotx which' with a file that doesn't exist in database."""
+    # Override XDG_DATA_HOME
+    data_dir = tmp_path / "data"
+    data_dir.mkdir()
+    monkeypatch.setenv("XDG_DATA_HOME", str(data_dir))
+
+    runner = CliRunner()
+    result = runner.invoke(app, ["which", str(tmp_path / ".nonexistent")])
+
+    assert result.exit_code == 1
+
+
+def test_which_command_composition(tmp_path, monkeypatch):
+    """Test composing 'dotx which' with 'dotx path'."""
+    # Override XDG_DATA_HOME
+    data_dir = tmp_path / "data"
+    data_dir.mkdir()
+    monkeypatch.setenv("XDG_DATA_HOME", str(data_dir))
+
+    # Create package structure
+    package_root = tmp_path / "dotfiles"
+    package_root.mkdir()
+    vim_dir = package_root / "vim"
+    vim_dir.mkdir()
+
+    target_file = tmp_path / ".vimrc"
+
+    # Record installation
+    with InstallationDB() as db:
+        db.record_installation(
+            package_root=package_root,
+            package_name="vim",
+            source_package_root=vim_dir,
+            target_path=target_file,
+            link_type="file",
+        )
+
+    runner = CliRunner()
+
+    # Get package name
+    which_result = runner.invoke(app, ["which", str(target_file)])
+    assert which_result.exit_code == 0
+    package_name = which_result.output.strip()
+    assert package_name == "vim"
+
+    # Use that to get path
+    path_result = runner.invoke(app, ["path", package_name])
+    assert path_result.exit_code == 0
+    assert str(vim_dir.resolve()) in path_result.output
