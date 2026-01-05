@@ -50,6 +50,7 @@ Commands:
   list       List all installed packages
   verify     Verify installations against filesystem
   show       Show detailed installation information for a package
+  path       Get source path of an installed package
   sync       Rebuild database from filesystem (interactive)
 ```
 So if you had a source package (a directory containing files) named `"bash"` containing `"dot-bashrc"` and
@@ -212,6 +213,30 @@ Installations:
   When:   2026-01-02T14:23:11.678901
 ...
 ```
+
+#### Get package source path
+
+Get the source path of an installed package for composition with other Unix tools:
+
+```bash
++$ dotx path bash
+/Users/wolf/builds/dotfiles/bash
+
+# Compose with other tools
++$ tree $(dotx path bash)
+/Users/wolf/builds/dotfiles/bash
+├── dot-bash_profile
+├── dot-bash_topics.d
+└── dot-bashrc
+
++$ cd $(dotx path vim)
+
++$ ls -la $(dotx path helix)
+```
+
+The command prints the source directory path(s) where package files are located. If a package has files from multiple source directories (like the shells example with subdirectories), all unique paths are printed, one per line.
+
+Exit codes: 0 if package found, 1 if not found.
 
 #### Rebuild database from filesystem
 

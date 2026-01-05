@@ -107,11 +107,12 @@ def main(
 
 
 # Register commands from submodules
-from dotx.commands import install_cmd, uninstall_cmd, database
+from dotx.commands import install_cmd, uninstall_cmd, database, path_cmd
 
 install_cmd.register_command(app)
 uninstall_cmd.register_command(app)
 database.register_commands(app)
+path_cmd.register_command(app)
 
 
 def cli():
