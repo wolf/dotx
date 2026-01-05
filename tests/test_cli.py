@@ -47,7 +47,7 @@ def test_cli_install_conflict_detection(tmp_path):
     assert "conflicts detected" in result.output
 
 
-def test_cli_install_with_verbose(tmp_path):
+def test_cli_install_with_verbose(tmp_path, isolated_db):
     """Test install with --verbose flag shows individual files."""
     source = tmp_path / "source"
     source.mkdir()
@@ -69,7 +69,7 @@ def test_cli_install_with_verbose(tmp_path):
     assert f"Installing {source.name}" in result.output
 
 
-def test_cli_install_multiple_packages(tmp_path):
+def test_cli_install_multiple_packages(tmp_path, isolated_db):
     """Test installing multiple packages in one command."""
     source1 = tmp_path / "source1"
     source2 = tmp_path / "source2"
@@ -94,7 +94,7 @@ def test_cli_install_multiple_packages(tmp_path):
     assert (target / "file2").exists()
 
 
-def test_cli_uninstall_basic(tmp_path):
+def test_cli_uninstall_basic(tmp_path, isolated_db):
     """Test basic uninstall command via CLI."""
     source = tmp_path / "source"
     source.mkdir()
@@ -124,7 +124,7 @@ def test_cli_uninstall_basic(tmp_path):
     assert not (target / "file2").exists()
 
 
-def test_cli_uninstall_multiple_packages(tmp_path):
+def test_cli_uninstall_multiple_packages(tmp_path, isolated_db):
     """Test uninstalling multiple packages in one command."""
     source1 = tmp_path / "source1"
     source2 = tmp_path / "source2"
@@ -159,7 +159,7 @@ def test_cli_uninstall_multiple_packages(tmp_path):
     assert not (target / "file2").exists()
 
 
-def test_cli_uninstall_with_verbose(tmp_path):
+def test_cli_uninstall_with_verbose(tmp_path, isolated_db):
     """Test uninstall with --verbose flag shows individual files."""
     source = tmp_path / "source"
     source.mkdir()
@@ -185,7 +185,7 @@ def test_cli_uninstall_with_verbose(tmp_path):
     assert f"Uninstalling {source.name}" in result.output
 
 
-def test_cli_uninstall_dry_run(tmp_path):
+def test_cli_uninstall_dry_run(tmp_path, isolated_db):
     """Test uninstall with --dry-run doesn't actually remove files."""
     source = tmp_path / "source"
     source.mkdir()
@@ -210,7 +210,7 @@ def test_cli_uninstall_dry_run(tmp_path):
     assert (target / "file1").exists()
 
 
-def test_cli_uninstall_with_directories(tmp_path):
+def test_cli_uninstall_with_directories(tmp_path, isolated_db):
     """Test uninstall handles directory symlinks correctly."""
     source = tmp_path / "source"
     source.mkdir()

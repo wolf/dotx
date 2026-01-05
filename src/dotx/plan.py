@@ -108,6 +108,10 @@ def execute_plan(
     # Use NoOpDB if no database provided
     working_db = db if db is not None else NoOpDB()
 
+    # Extract package info for database tracking
+    package_root = source_package_root.parent
+    package_name = source_package_root.name
+
     def build_shell_command(step: PlanNode):
         """Print the shell command corresponding to exactly one `PlanNode`"""
         command = None
@@ -147,14 +151,14 @@ def execute_plan(
                 destination.mkdir()
                 # Record directory creation in database
                 working_db.record_installation(
-                    source_package_root, destination, "created_dir"
+                    package_root, package_name, source_package_root, destination, "created_dir"
                 )
             case Action.LINK:
                 destination.symlink_to(source, step.is_dir)
                 # Record symlink in database
                 link_type = "directory" if step.is_dir else "file"
                 working_db.record_installation(
-                    source_package_root, destination, link_type
+                    package_root, package_name, source_package_root, destination, link_type
                 )
             case Action.UNLINK if destination.is_symlink():
                 destination.unlink()

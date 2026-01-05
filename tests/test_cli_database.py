@@ -37,9 +37,9 @@ def test_list_with_packages(tmp_path):
 
     # Create database with some installations
     with InstallationDB(db_path) as db:
-        db.record_installation(package1, tmp_path / ".file1", "file")
-        db.record_installation(package1, tmp_path / ".file2", "file")
-        db.record_installation(package2, tmp_path / ".file3", "file")
+        db.record_installation(tmp_path, "package1", package1, tmp_path / ".file1", "file")
+        db.record_installation(tmp_path, "package1", package1, tmp_path / ".file2", "file")
+        db.record_installation(tmp_path, "package2", package2, tmp_path / ".file3", "file")
 
     # Verify we can retrieve packages
     with InstallationDB(db_path) as db:
@@ -47,11 +47,11 @@ def test_list_with_packages(tmp_path):
         assert len(packages) == 2
 
         # Find package1
-        pkg1 = next(p for p in packages if Path(p["package_name"]).name == "package1")
+        pkg1 = next(p for p in packages if p["package_name"] == "package1")
         assert pkg1["file_count"] == 2
 
         # Find package2
-        pkg2 = next(p for p in packages if Path(p["package_name"]).name == "package2")
+        pkg2 = next(p for p in packages if p["package_name"] == "package2")
         assert pkg2["file_count"] == 1
 
 
@@ -69,11 +69,11 @@ def test_verify_all_good(tmp_path):
 
     # Record installation
     with InstallationDB(db_path) as db:
-        db.record_installation(package, target_file, "file")
+        db.record_installation(tmp_path, "package", package, target_file, "file")
 
     # Verify - should have no issues
     with InstallationDB(db_path) as db:
-        issues = db.verify_installations(package)
+        issues = db.verify_installations(tmp_path, "package")
         assert issues == []
 
 
@@ -87,11 +87,11 @@ def test_verify_missing_file(tmp_path):
 
     # Record installation but don't create the file
     with InstallationDB(db_path) as db:
-        db.record_installation(package, target_file, "file")
+        db.record_installation(tmp_path, "package", package, target_file, "file")
 
     # Verify - should detect missing file
     with InstallationDB(db_path) as db:
-        issues = db.verify_installations(package)
+        issues = db.verify_installations(tmp_path, "package")
         assert len(issues) == 1
         assert "missing" in issues[0]["issue"].lower()
         assert str(target_file) == issues[0]["target_path"]
@@ -108,11 +108,11 @@ def test_verify_not_symlink(tmp_path):
 
     # Record as if it were a symlink
     with InstallationDB(db_path) as db:
-        db.record_installation(package, target_file, "file")
+        db.record_installation(tmp_path, "package", package, target_file, "file")
 
     # Verify - should detect it's not a symlink
     with InstallationDB(db_path) as db:
-        issues = db.verify_installations(package)
+        issues = db.verify_installations(tmp_path, "package")
         assert len(issues) == 1
         assert "not a symlink" in issues[0]["issue"].lower()
 
@@ -125,13 +125,13 @@ def test_show_package(tmp_path):
 
     # Record multiple installations
     with InstallationDB(db_path) as db:
-        db.record_installation(package, tmp_path / ".file1", "file")
-        db.record_installation(package, tmp_path / ".file2", "file")
-        db.record_installation(package, tmp_path / ".dir", "directory")
+        db.record_installation(tmp_path, "package", package, tmp_path / ".file1", "file")
+        db.record_installation(tmp_path, "package", package, tmp_path / ".file2", "file")
+        db.record_installation(tmp_path, "package", package, tmp_path / ".dir", "directory")
 
     # Get installations
     with InstallationDB(db_path) as db:
-        installations = db.get_installations(package)
+        installations = db.get_installations(tmp_path, "package")
         assert len(installations) == 3
 
         # Check we have all three types
@@ -150,7 +150,7 @@ def test_show_nonexistent_package(tmp_path):
         pass  # Empty database
 
     with InstallationDB(db_path) as db:
-        installations = db.get_installations(package)
+        installations = db.get_installations(tmp_path, "nonexistent")
         assert installations == []
 
 
@@ -177,13 +177,15 @@ def test_sync_database_operations(tmp_path):
     link2.symlink_to(source_file2)
 
     # Record in database
+    package_root = package.parent
+    package_name = package.name
     with InstallationDB(db_path) as db:
-        db.record_installation(package, link1, "file")
-        db.record_installation(package, link2, "file")
+        db.record_installation(package_root, package_name, package, link1, "file")
+        db.record_installation(package_root, package_name, package, link2, "file")
 
     # Verify database has the records (should store symlink paths, not resolved paths)
     with InstallationDB(db_path) as db:
-        installations = db.get_installations(package)
+        installations = db.get_installations(package_root, package_name)
         assert len(installations) == 2
         assert str(link1.absolute()) in [inst["target_path"] for inst in installations]
         assert str(link2.absolute()) in [inst["target_path"] for inst in installations]
@@ -203,23 +205,23 @@ def test_orphaned_entries(tmp_path):
 
     # Record both in database
     with InstallationDB(db_path) as db:
-        db.record_installation(package, target1, "file")
-        db.record_installation(package, target2, "file")
+        db.record_installation(tmp_path, "package", package, target1, "file")
+        db.record_installation(tmp_path, "package", package, target2, "file")
 
     # Find orphaned entries
     with InstallationDB(db_path) as db:
-        orphaned = db.get_orphaned_entries(package)
+        orphaned = db.get_orphaned_entries(tmp_path, "package")
         assert len(orphaned) == 1
         assert str(target2.absolute()) == orphaned[0]["target_path"]
 
     # Clean orphaned entries
     with InstallationDB(db_path) as db:
-        removed_count = db.clean_orphaned_entries(package)
+        removed_count = db.clean_orphaned_entries(tmp_path, "package")
         assert removed_count == 1
 
     # Verify orphaned entry was removed
     with InstallationDB(db_path) as db:
-        installations = db.get_installations(package)
+        installations = db.get_installations(tmp_path, "package")
         assert len(installations) == 1
         assert str(target1.absolute()) == installations[0]["target_path"]
 
@@ -234,12 +236,12 @@ def test_package_exists(tmp_path):
 
     # Record installation for package1 only
     with InstallationDB(db_path) as db:
-        db.record_installation(package1, tmp_path / ".file", "file")
+        db.record_installation(tmp_path, "package1", package1, tmp_path / ".file", "file")
 
     # Check existence
     with InstallationDB(db_path) as db:
-        assert db.package_exists(package1) is True
-        assert db.package_exists(package2) is False
+        assert db.package_exists(tmp_path, "package1") is True
+        assert db.package_exists(tmp_path, "package2") is False
 
 
 def test_cli_list_no_packages(tmp_path, monkeypatch):
@@ -512,7 +514,7 @@ def test_database_schema_version(tmp_path):
         )
         version_row = cursor.fetchone()
         assert version_row is not None
-        assert version_row["value"] == "1"
+        assert version_row["value"] == "2"
 
 
 def test_cli_sync_clean_dry_run(tmp_path, monkeypatch):
@@ -583,7 +585,7 @@ def test_cli_sync_clean(tmp_path, monkeypatch):
 
     # Check database has 2 entries
     with InstallationDB() as db:
-        installations = db.get_installations(source)
+        installations = db.get_installations(source.parent, source.name)
         assert len(installations) == 2
 
     # Delete one symlink manually (simulating orphaned entry)
@@ -602,7 +604,7 @@ def test_cli_sync_clean(tmp_path, monkeypatch):
 
     # Check database now has only 1 entry
     with InstallationDB() as db:
-        installations = db.get_installations(source)
+        installations = db.get_installations(source.parent, source.name)
         assert len(installations) == 1
         # The remaining entry should be for file2
         assert installations[0]["target_path"] == str((target / "file2").absolute())
@@ -639,3 +641,76 @@ def test_cli_sync_clean_no_orphans(tmp_path, monkeypatch):
     assert result.exit_code == 0
     assert "Cleaning orphaned entries" in result.output
     assert "No orphaned entries found" in result.output
+
+
+def test_package_name_semantic_not_implementation(tmp_path):
+    """Test that package names are semantic (e.g., 'helix') not implementation details (e.g., 'dot-config')."""
+    db_path = tmp_path / "test.db"
+
+    # Create a package structure: dotfiles/helix/dot-config/settings.toml
+    dotfiles = tmp_path / "dotfiles"
+    helix_pkg = dotfiles / "helix"
+    dot_config = helix_pkg / "dot-config"
+    dot_config.mkdir(parents=True)
+
+    (dot_config / "settings.toml").write_text("theme = 'dark'")
+
+    # Record installation (simulating what install would do)
+    with InstallationDB(db_path) as db:
+        # Package root is dotfiles, package name is helix
+        db.record_installation(
+            dotfiles,
+            "helix",
+            dot_config,  # Source is the dot-config subdirectory
+            tmp_path / ".config" / "helix" / "settings.toml",
+            "file",
+        )
+
+    # Verify package name in get_all_packages
+    with InstallationDB(db_path) as db:
+        packages = db.get_all_packages()
+        assert len(packages) == 1
+        # Should show semantic name "helix", not "dot-config"
+        assert packages[0]["package_name"] == "helix"
+        # Package root should be dotfiles
+        assert packages[0]["package_root"] == str(dotfiles.resolve())
+
+
+def test_package_grouping_multiple_source_dirs(tmp_path):
+    """Test that files from multiple source directories are grouped as one package."""
+    db_path = tmp_path / "test.db"
+
+    # Create package: dotfiles/shells with top-level files and subdirectory
+    dotfiles = tmp_path / "dotfiles"
+    shells_pkg = dotfiles / "shells"
+    shells_config = shells_pkg / "dot-config"
+    shells_config.mkdir(parents=True)
+
+    (shells_pkg / "bashrc").touch()
+    (shells_pkg / "zshrc").touch()
+    (shells_config / "fish" / "config.fish").parent.mkdir(parents=True)
+    (shells_config / "fish" / "config.fish").touch()
+
+    # Record installations from different source directories
+    with InstallationDB(db_path) as db:
+        # Top-level files
+        db.record_installation(dotfiles, "shells", shells_pkg, tmp_path / ".bashrc", "file")
+        db.record_installation(dotfiles, "shells", shells_pkg, tmp_path / ".zshrc", "file")
+
+        # Files from subdirectory
+        db.record_installation(
+            dotfiles,
+            "shells",
+            shells_config,  # Different source_package_root
+            tmp_path / ".config" / "fish" / "config.fish",
+            "file",
+        )
+
+    # Verify all files appear as ONE package
+    with InstallationDB(db_path) as db:
+        packages = db.get_all_packages()
+        assert len(packages) == 1, "All files from 'shells' should be grouped together"
+
+        pkg = packages[0]
+        assert pkg["package_name"] == "shells"
+        assert pkg["file_count"] == 3  # Should count all 3 files together

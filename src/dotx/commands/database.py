@@ -1,5 +1,6 @@
 """Database-related commands for dotx CLI (list, verify, show, sync)."""
 
+from datetime import datetime
 from pathlib import Path
 from typing import Annotated, Optional
 
@@ -12,6 +13,23 @@ from rich.panel import Panel
 
 from dotx.database import InstallationDB
 from dotx.options import is_verbose_mode
+
+
+def _format_timestamp(iso_timestamp: str | None) -> str:
+    """
+    Format an ISO timestamp for display.
+
+    Converts ISO 8601 timestamp to readable format: YYYY-MM-DD HH:MM:SS
+    Returns 'unknown' if timestamp is None or invalid.
+    """
+    if not iso_timestamp:
+        return "unknown"
+
+    try:
+        dt = datetime.fromisoformat(iso_timestamp)
+        return dt.strftime("%Y-%m-%d %H:%M:%S")
+    except (ValueError, AttributeError):
+        return "unknown"
 
 
 def _scan_symlinks(path: Path, max_depth: int, progress: Progress, task_id) -> list[tuple[Path, bool]]:
@@ -73,7 +91,9 @@ def register_commands(app: typer.Typer):
             if as_commands:
                 # Output as dotx install commands (plain text, no formatting)
                 for pkg in packages:
-                    typer.echo(f"dotx install {pkg['package_name']}")
+                    # Use package_root / package_name to construct install path
+                    package_path = Path(pkg["package_root"]) / pkg["package_name"]
+                    typer.echo(f"dotx install {package_path}")
             else:
                 # Output as rich table
                 table = Table(title="Installed Packages", show_header=True, header_style="bold cyan")
@@ -82,13 +102,9 @@ def register_commands(app: typer.Typer):
                 table.add_column("Last Install", style="green")
 
                 for pkg in packages:
-                    package_name = Path(pkg["package_name"]).name
+                    package_name = pkg["package_name"]  # Already the semantic name
                     file_count = str(pkg["file_count"])
-                    latest = (
-                        pkg["latest_install"][:19]
-                        if pkg["latest_install"]
-                        else "[dim]unknown[/dim]"
-                    )
+                    latest = _format_timestamp(pkg["latest_install"])
                     table.add_row(package_name, file_count, latest)
 
                 console.print()
@@ -117,12 +133,12 @@ def register_commands(app: typer.Typer):
         with InstallationDB() as db:
             if package:
                 # Verify specific package
-                packages_to_verify = [package]
+                packages_to_verify = [(package.parent, package.name)]
             else:
                 # Verify all packages
                 all_packages = db.get_all_packages()
                 packages_to_verify = [
-                    Path(pkg["package_name"]) for pkg in all_packages
+                    (Path(pkg["package_root"]), pkg["package_name"]) for pkg in all_packages
                 ]
 
             if not packages_to_verify:
@@ -130,14 +146,14 @@ def register_commands(app: typer.Typer):
                 return
 
             total_issues = 0
-            for pkg in packages_to_verify:
-                issues = db.verify_installations(pkg)
+            for pkg_root, pkg_name in packages_to_verify:
+                issues = db.verify_installations(pkg_root, pkg_name)
                 if issues:
-                    console.print(f"\n[bold cyan]{pkg.name}:[/bold cyan]")
+                    console.print(f"\n[bold cyan]{pkg_name}:[/bold cyan]")
                     for issue in issues:
-                        console.print(f"  [red]✗[/red] {issue['target_path']}")
-                        console.print(f"    [dim]Issue: {issue['issue']}[/dim]")
-                        console.print(f"    [dim]Expected: {issue['link_type']}[/dim]")
+                        console.print(f"  [red]✗[/red] {issue["target_path"]}")
+                        console.print(f"    [dim]Issue: {issue["issue"]}[/dim]")
+                        console.print(f"    [dim]Expected: {issue["link_type"]}[/dim]")
                     total_issues += len(issues)
 
             if total_issues == 0:
@@ -164,15 +180,19 @@ def register_commands(app: typer.Typer):
         logger.info("show starting")
         console = Console()
 
+        # Extract package info
+        package_root = package.parent
+        package_name = package.name
+
         with InstallationDB() as db:
-            installations = db.get_installations(package)
+            installations = db.get_installations(package_root, package_name)
 
             if not installations:
-                console.print(f"[yellow]No installations found for {package.name}[/yellow]")
+                console.print(f"[yellow]No installations found for {package_name}[/yellow]")
                 return
 
             # Create info panel
-            info = f"[bold cyan]Package:[/bold cyan] {package}\n"
+            info = f"[bold cyan]Package:[/bold cyan] {package_name}\n"
             info += f"[bold cyan]Installed files:[/bold cyan] {len(installations)}"
 
             panel = Panel(info, title="Package Information", border_style="cyan")
@@ -187,9 +207,9 @@ def register_commands(app: typer.Typer):
 
             for install in installations:
                 table.add_row(
-                    str(install['target_path']),
-                    install['link_type'],
-                    install['installed_at'][:19] if install['installed_at'] else "unknown"
+                    str(install["target_path"]),
+                    install["link_type"],
+                    _format_timestamp(install["installed_at"])
                 )
 
             console.print()
@@ -367,11 +387,12 @@ def register_commands(app: typer.Typer):
                     total_would_clean = 0
 
                     for pkg_info in all_packages:
-                        pkg_path = Path(pkg_info["package_name"])
-                        orphaned = db.get_orphaned_entries(pkg_path)
+                        pkg_root = Path(pkg_info["package_root"])
+                        pkg_name = pkg_info["package_name"]
+                        orphaned = db.get_orphaned_entries(pkg_root, pkg_name)
                         if orphaned:
                             total_would_clean += len(orphaned)
-                            console.print(f"  {pkg_path.name}: {len(orphaned)} orphaned entry(ies)")
+                            console.print(f"  {pkg_name}: {len(orphaned)} orphaned entry(ies)")
 
                     if total_would_clean > 0:
                         console.print(f"[yellow]Would remove {total_would_clean} orphaned entry(ies).[/yellow]")
@@ -394,6 +415,10 @@ def register_commands(app: typer.Typer):
             total_recorded = 0
 
             for package_path, links in packages.items():
+                # Extract package info for database
+                package_root = package_path.parent
+                package_name = package_path.name
+
                 for link_path, resolved, is_dir in links:
                     # Determine link type
                     if is_dir:
@@ -402,9 +427,9 @@ def register_commands(app: typer.Typer):
                         link_type = "file"
 
                     # Record in database
-                    db.record_installation(package_path, link_path, link_type)
+                    db.record_installation(package_root, package_name, package_path, link_path, link_type)
                     total_recorded += 1
-                    logger.debug(f"Recorded {link_path} -> {package_path}")
+                    logger.debug(f"Recorded {link_path} -> {package_name}")
 
             console.print(f"\n[green]✓ Recorded {total_recorded} installation(s) in database.[/green]")
 
@@ -415,12 +440,13 @@ def register_commands(app: typer.Typer):
                 total_cleaned = 0
 
                 for pkg_info in all_packages:
-                    pkg_path = Path(pkg_info["package_name"])
-                    cleaned = db.clean_orphaned_entries(pkg_path)
+                    pkg_root = Path(pkg_info["package_root"])
+                    pkg_name = pkg_info["package_name"]
+                    cleaned = db.clean_orphaned_entries(pkg_root, pkg_name)
                     if cleaned > 0:
                         total_cleaned += cleaned
                         if verbose:
-                            console.print(f"  Cleaned {cleaned} orphaned entry(ies) from {pkg_path.name}")
+                            console.print(f"  Cleaned {cleaned} orphaned entry(ies) from {pkg_name}")
 
                 if total_cleaned > 0:
                     console.print(f"[green]✓ Removed {total_cleaned} orphaned entry(ies).[/green]")

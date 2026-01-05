@@ -33,7 +33,14 @@ class NoOpDB:
         """Context manager exit - does nothing."""
         return False
 
-    def record_installation(self, package_name: Path, target_path: Path, link_type: str):
+    def record_installation(
+        self,
+        package_root: Path,
+        package_name: str,
+        source_package_root: Path,
+        target_path: Path,
+        link_type: str,
+    ):
         """No-op: does not record installation."""
         pass
 
@@ -41,7 +48,7 @@ class NoOpDB:
         """No-op: does not remove installation."""
         pass
 
-    def get_installations(self, package_name: Path) -> list[dict]:
+    def get_installations(self, package_root: Path, package_name: str) -> list[dict]:
         """No-op: returns empty list."""
         return []
 
@@ -49,19 +56,19 @@ class NoOpDB:
         """No-op: returns empty list."""
         return []
 
-    def verify_installations(self, package_name: Path) -> list[dict]:
+    def verify_installations(self, package_root: Path, package_name: str) -> list[dict]:
         """No-op: returns empty list."""
         return []
 
-    def get_orphaned_entries(self, package_name: Path) -> list[dict]:
+    def get_orphaned_entries(self, package_root: Path, package_name: str) -> list[dict]:
         """No-op: returns empty list."""
         return []
 
-    def clean_orphaned_entries(self, package_name: Path) -> int:
+    def clean_orphaned_entries(self, package_root: Path, package_name: str) -> int:
         """No-op: returns 0."""
         return 0
 
-    def package_exists(self, package_name: Path) -> bool:
+    def package_exists(self, package_root: Path, package_name: str) -> bool:
         """No-op: returns False."""
         return False
 
@@ -152,36 +159,49 @@ class InstallationDB:
         logger.debug("Database schema initialized")
 
     def record_installation(
-        self, package_name: Path, target_path: Path, link_type: str
+        self,
+        package_root: Path,
+        package_name: str,
+        source_package_root: Path,
+        target_path: Path,
+        link_type: str,
     ):
         """
         Record an installation in the database.
 
-        The link_type should be 'file', 'directory', or 'created_dir'.
-        Package path is resolved (follows symlinks), but target path
-        is made absolute without following symlinks (to preserve symlink location).
+        Args:
+            package_root: Base directory where packages live (e.g., ~/dotfiles)
+            package_name: Semantic package name (e.g., helix)
+            source_package_root: Directory where files are linked from
+            target_path: Destination path of the symlink/directory
+            link_type: 'file', 'directory', or 'created_dir'
+
+        Paths are resolved/made absolute before storage.
         """
         if not self.conn:
             raise RuntimeError("Database not connected")
 
-        package_str = str(package_name.resolve())
+        package_root_str = str(package_root.resolve())
+        source_package_root_str = str(source_package_root.resolve())
         target_str = str(target_path.absolute())
 
         try:
             self.conn.execute(
                 """
                 INSERT OR REPLACE INTO installations
-                (package_name, target_path, link_type, installed_at)
-                VALUES (:package, :target, :link_type, :installed_at)
+                (package_root, package_name, source_package_root, target_path, link_type, installed_at)
+                VALUES (:package_root, :package_name, :source_package_root, :target, :link_type, :installed_at)
                 """,
                 {
-                    "package": package_str,
+                    "package_root": package_root_str,
+                    "package_name": package_name,
+                    "source_package_root": source_package_root_str,
                     "target": target_str,
                     "link_type": link_type,
                     "installed_at": datetime.now().isoformat(),
                 },
             )
-            logger.debug(f"Recorded installation: {target_str} from {package_str}")
+            logger.debug(f"Recorded installation: {target_str} from {package_name} ({source_package_root_str})")
         except Exception as e:
             logger.error(f"Failed to record installation: {e}")
             raise
@@ -207,21 +227,25 @@ class InstallationDB:
             logger.error(f"Failed to remove installation: {e}")
             raise
 
-    def get_installations(self, package_name: Path) -> list[dict]:
+    def get_installations(self, package_root: Path, package_name: str) -> list[dict]:
         """
         Get all installations for a package, ordered by target path.
 
-        Each installation record is a dict with keys: id, package_name,
-        target_path, link_type, and installed_at.
+        Each installation record is a dict with keys: id, package_root, package_name,
+        source_package_root, target_path, link_type, and installed_at.
+
+        package_root is resolved (follows symlinks) to match how it was stored.
         """
         if not self.conn:
             raise RuntimeError("Database not connected")
 
-        package_str = str(package_name.resolve())
+        package_root_str = str(package_root.resolve())  # Resolve to match storage
 
         cursor = self.conn.execute(
-            "SELECT * FROM installations WHERE package_name = :package ORDER BY target_path",
-            {"package": package_str},
+            """SELECT * FROM installations
+               WHERE package_root = :package_root AND package_name = :package_name
+               ORDER BY target_path""",
+            {"package_root": package_root_str, "package_name": package_name},
         )
 
         return [dict(row) for row in cursor.fetchall()]
@@ -230,25 +254,29 @@ class InstallationDB:
         """
         Get all packages with installation counts, ordered by package name.
 
-        Each package record is a dict with keys: package_name, file_count,
+        Each package record is a dict with keys: package_root, package_name, file_count,
         and latest_install timestamp.
+
+        Groups by both package_root and package_name to properly aggregate files from
+        the same semantic package, regardless of source_package_root variations.
         """
         if not self.conn:
             raise RuntimeError("Database not connected")
 
         cursor = self.conn.execute("""
             SELECT
+                package_root,
                 package_name,
                 COUNT(*) as file_count,
                 MAX(installed_at) as latest_install
             FROM installations
-            GROUP BY package_name
+            GROUP BY package_root, package_name
             ORDER BY package_name
         """)
 
         return [dict(row) for row in cursor.fetchall()]
 
-    def verify_installations(self, package_name: Path) -> list[dict]:
+    def verify_installations(self, package_root: Path, package_name: str) -> list[dict]:
         """
         Verify installations for a package against filesystem.
 
@@ -258,7 +286,7 @@ class InstallationDB:
         if not self.conn:
             raise RuntimeError("Database not connected")
 
-        installations = self.get_installations(package_name)
+        installations = self.get_installations(package_root, package_name)
         issues = []
 
         for install in installations:
@@ -292,13 +320,13 @@ class InstallationDB:
 
         return issues
 
-    def get_orphaned_entries(self, package_name: Path) -> list[dict]:
+    def get_orphaned_entries(self, package_root: Path, package_name: str) -> list[dict]:
         """
         Find database entries whose targets don't exist on filesystem.
 
         Returns orphaned installation records (target files/directories are missing).
         """
-        installations = self.get_installations(package_name)
+        installations = self.get_installations(package_root, package_name)
         orphaned = []
 
         for install in installations:
@@ -308,32 +336,33 @@ class InstallationDB:
 
         return orphaned
 
-    def clean_orphaned_entries(self, package_name: Path) -> int:
+    def clean_orphaned_entries(self, package_root: Path, package_name: str) -> int:
         """
         Remove database entries whose targets don't exist on filesystem.
 
         Logs each removed entry and returns count of entries removed.
         """
-        orphaned = self.get_orphaned_entries(package_name)
+        orphaned = self.get_orphaned_entries(package_root, package_name)
 
         for entry in orphaned:
             self.remove_installation(Path(entry["target_path"]))
-            logger.info(f"Removed orphaned DB entry: {entry['target_path']}")
+            logger.info(f"Removed orphaned DB entry: {entry["target_path"]}")
 
         return len(orphaned)
 
-    def package_exists(self, package_name: Path) -> bool:
+    def package_exists(self, package_root: Path, package_name: str) -> bool:
         """
         Check if a package has any installations recorded in the database.
         """
         if not self.conn:
             raise RuntimeError("Database not connected")
 
-        package_str = str(package_name.resolve())
+        package_root_str = str(package_root.resolve())
 
         cursor = self.conn.execute(
-            "SELECT COUNT(*) as count FROM installations WHERE package_name = :package",
-            {"package": package_str},
+            """SELECT COUNT(*) as count FROM installations
+               WHERE package_root = :package_root AND package_name = :package_name""",
+            {"package_root": package_root_str, "package_name": package_name},
         )
 
         row = cursor.fetchone()
