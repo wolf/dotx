@@ -1,0 +1,61 @@
+# Default patterns for files and directories to ignore during installation
+#
+# These patterns are always active and can be extended by:
+#   ~/.config/dotx/dotxignore (user-specific additions)
+#   <package>/.dotxignore (package-specific rules, hierarchical like git)
+#
+# Uses gitignore-style patterns:
+#   .git             - exact match
+#   *.pyc            - wildcard
+#   !important.pyc   - exception (don't ignore this one)
+
+# Version control
+.git
+.gitignore
+.gitattributes
+.gitmodules
+.hg
+.svn
+
+# dotx configuration files (don't install the config files themselves)
+.dotxignore
+.always-create
+
+# Python
+__pycache__
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info
+dist
+build
+.pytest_cache
+.ruff_cache
+.mypy_cache
+.coverage
+htmlcov
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# Editor files
+.vscode
+.idea
+*.swp
+*.swo
+*~
+.*.swp
+.*.swo
+
+# Temporary files
+*.tmp
+*.bak
+*.log

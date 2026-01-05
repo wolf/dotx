@@ -1,0 +1,23 @@
+# Default patterns for directories that must be created (real directories, never symlinked)
+#
+# These are common shared directories where multiple programs/packages install files.
+# If these were symlinks, only one package could use them.
+#
+# This file is shipped with dotx and can be overridden by:
+#   ~/.config/dotx/always-create (user-specific additions)
+#   <package>/.always-create (package-specific rules)
+#
+# Uses gitignore-style patterns with leading / to match only at root level:
+#   /.config         - match .config at root only (not .config/subdir)
+#   /.local/share    - match .local/share only (not .local/share/applications)
+
+# XDG Base Directory specification directories
+/.config
+/.local
+/.local/share
+/.local/bin
+/.cache
+
+# Other common shared directories
+/.ssh
+/.gnupg

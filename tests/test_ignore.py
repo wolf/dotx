@@ -3,9 +3,9 @@
 from dotx.ignore import IgnoreRules
 
 
-def test_ignore_rules_import():
+def test_ignore_rules_import(tmp_path):
     """Test that IgnoreRules can be imported and instantiated."""
-    ignore_rules = IgnoreRules()
+    ignore_rules = IgnoreRules(tmp_path)
     assert ignore_rules is not None
-    assert ignore_rules.global_spec is None or ignore_rules.global_spec is not None
-    assert isinstance(ignore_rules.dir_specs, dict)
+    assert ignore_rules.source_root == tmp_path
+    assert ignore_rules.matcher is not None

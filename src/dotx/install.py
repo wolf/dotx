@@ -14,6 +14,7 @@ from pathlib import Path
 
 from loguru import logger
 
+from dotx.hierarchy import HierarchicalPatternMatcher
 from dotx.ignore import IgnoreRules
 from dotx.plan import (
     Action,
@@ -23,6 +24,64 @@ from dotx.plan import (
     mark_all_ancestors,
     mark_immediate_children,
 )
+
+
+def _matches_always_create_at_exact_depth(
+    path: Path, matcher: HierarchicalPatternMatcher
+) -> bool:
+    """
+    Check if path has an explicit always-create pattern at its depth.
+
+    Gitignore patterns match subdirectories by default, but we only want to mark
+    directories as always-create if there's a pattern explicitly for that depth.
+
+    Examples with patterns [/.config, /.local, /.local/share]:
+    - ".config" → True (matches /.config at depth 1)
+    - ".config/myapp" → False (no pattern at depth 2 for this path)
+    - ".local" → True (matches /.local at depth 1)
+    - ".local/share" → True (matches /.local/share at depth 2)
+    - ".local/share/apps" → False (no pattern at depth 3)
+
+    Args:
+        path: Relative destination path to check
+        matcher: HierarchicalPatternMatcher with always-create patterns loaded
+
+    Returns:
+        True if there's an explicit pattern at this path's depth
+    """
+    # Check if this path matches any pattern
+    if not matcher.matches(path, is_dir=True):
+        return False
+
+    # Check if there's a pattern with the same depth as this path
+    if matcher.spec is None:
+        return False
+
+    path_depth = len(path.parts)
+
+    # Check each pattern to see if any have the same depth
+    for pattern_obj in matcher.spec.patterns:
+        # PathSpec.patterns returns Pattern objects, access pattern string
+        pattern = pattern_obj.pattern if hasattr(pattern_obj, "pattern") else str(pattern_obj)
+        # Normalize pattern: strip leading/trailing slashes
+        pattern_clean = pattern.strip("/")
+        if not pattern_clean:
+            continue
+
+        # Calculate pattern depth
+        pattern_parts = pattern_clean.split("/")
+        pattern_depth = len(pattern_parts)
+
+        # If this pattern has the same depth, check if it matches this path
+        if pattern_depth == path_depth:
+            # Create a single-pattern spec to test just this pattern
+            import pathspec
+            test_spec = pathspec.PathSpec.from_lines("gitwildmatch", [pattern])
+            path_str = str(path) + "/"
+            if test_spec.match_file(path_str):
+                return True
+
+    return False
 
 
 def plan_install(source_package_root: Path, destination_root: Path) -> Plan:
@@ -36,6 +95,20 @@ def plan_install(source_package_root: Path, destination_root: Path) -> Plan:
     Returns: a `Plan` with all the information needed to complete an install, or to fail
     """
     plan: Plan = plan_install_paths(source_package_root)
+
+    # Load always-create patterns to determine which directories must be real (never symlinked)
+    always_create_matcher = HierarchicalPatternMatcher(".always-create")
+    builtin_file = Path(__file__).parent / "always-create"
+    config_home = os.environ.get("XDG_CONFIG_HOME", str(Path.home() / ".config"))
+    user_config = Path(config_home) / "dotx" / "always-create"
+    package_file = source_package_root / ".always-create"
+    package_files = [package_file] if package_file.exists() else []
+
+    always_create_matcher.load_patterns(
+        builtin_file=builtin_file,
+        user_config=user_config,
+        package_files=package_files,
+    )
 
     # Walk the source package bottom-up to determine what action to take for each path.
     # Bottom-up traversal ensures we know about children before deciding on parents.
@@ -79,6 +152,17 @@ def plan_install(source_package_root: Path, destination_root: Path) -> Plan:
         if current_root_path == source_package_root:
             # Package root always EXISTS (it's the target directory)
             plan[relative_root_path].action = Action.EXISTS
+        elif (destination_root / relative_destination_root_path).exists():
+            # Directory already exists at destination - merge into it
+            # This takes precedence over always-create because we can't create what exists
+            plan[relative_root_path].action = Action.EXISTS
+            # Mark ancestors as existing too
+            mark_all_ancestors(
+                relative_root_path,
+                mark=Action.EXISTS,
+                stop_mark=Action.EXISTS,
+                plan=plan,
+            )
         elif found_children_to_rename:
             # Can't link whole directory if children need renaming - must CREATE it
             plan[relative_root_path].action = Action.CREATE
@@ -89,16 +173,19 @@ def plan_install(source_package_root: Path, destination_root: Path) -> Plan:
                 stop_mark=Action.EXISTS,
                 plan=plan,
             )
-        elif (destination_root / relative_destination_root_path).exists():
-            # Directory already exists at destination - merge into it
-            plan[relative_root_path].action = Action.EXISTS
-            # Mark ancestors as existing too
+        elif _matches_always_create_at_exact_depth(relative_destination_root_path, always_create_matcher):
+            # Directory matches always-create pattern AT ITS SPECIFIED DEPTH
+            # This ensures shared directories like .config are real directories,
+            # but subdirectories like .config/myapp can still be linked
+            plan[relative_root_path].action = Action.CREATE
+            # Parent directories must also be created up to one that already exists
             mark_all_ancestors(
                 relative_root_path,
-                mark=Action.EXISTS,
+                mark=Action.CREATE,
                 stop_mark=Action.EXISTS,
                 plan=plan,
             )
+            logger.debug(f"Directory {relative_destination_root_path} matches always-create pattern, will CREATE")
         else:
             # Directory doesn't exist and has no rename conflicts - we can link it
             plan[relative_root_path].action = Action.LINK
@@ -147,7 +234,7 @@ def plan_install_paths(source_package_root: Path) -> Plan:
     logger.info(f"Planning install paths for source package {source_package_root}")
 
     # Initialize ignore rules (loads global ignore and will load .dotxignore files during traversal)
-    ignore_rules = IgnoreRules()
+    ignore_rules = IgnoreRules(source_package_root)
 
     plan: Plan = {
         Path("."): PlanNode(
@@ -170,17 +257,14 @@ def plan_install_paths(source_package_root: Path) -> Plan:
     for current_root, child_directories, child_files in os.walk(source_package_root):
         current_root_path = Path(current_root)
 
-        # Load .dotxignore from current directory if it exists
-        ignore_rules.load_ignore_file(current_root_path)
-
         # Prune ignored directories to prevent descending into them
         # This modifies child_directories in-place so os.walk won't recurse into them
         child_directories[:] = ignore_rules.prune_directories(
-            current_root_path, child_directories, source_package_root
+            current_root_path, child_directories
         )
 
         # Skip this directory if it should be ignored
-        if ignore_rules.should_ignore(current_root_path, source_package_root):
+        if ignore_rules.should_ignore(current_root_path):
             continue
 
         relative_root_path = current_root_path.relative_to(source_package_root)
@@ -193,7 +277,7 @@ def plan_install_paths(source_package_root: Path) -> Plan:
             child_relative_source_path = relative_root_path / child
 
             # Skip ignored files and directories
-            if ignore_rules.should_ignore(child_source_path, source_package_root):
+            if ignore_rules.should_ignore(child_source_path):
                 continue
 
             # Handle dot- prefix renaming: "dot-bashrc" → ".bashrc"

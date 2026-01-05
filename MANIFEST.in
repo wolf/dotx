@@ -1,1 +1,3 @@
 include src/dotx/installed-schema.sql
+include src/dotx/always-create
+include src/dotx/dotxignore
