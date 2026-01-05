@@ -54,4 +54,4 @@ def is_debug_mode(ctx: click.Context | None = None) -> bool:
 
 def is_dry_run(ctx: click.Context | None = None) -> bool:
     """Check if dry-run mode is enabled."""
-    return get_option("DRYRUN", True, ctx)
+    return get_option("DRYRUN", False, ctx)
