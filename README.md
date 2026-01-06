@@ -112,6 +112,27 @@ The `.dotxignore` file supports:
 You can also nest `.dotxignore` files in subdirectories, just like `.gitignore`. Files closer to the matched file take
 precedence.
 
+#### Built-in ignore patterns
+
+`dotx` comes with sensible defaults that automatically ignore common files you don't want installed to your home directory:
+
+- **Documentation**: `README`, `README.*`, `*.md` (for GitHub/docs, not installation)
+- **Version control**: `.git/`, `.gitignore`, `.svn/`, etc.
+- **Python artifacts**: `__pycache__/`, `*.pyc`, `.pytest_cache/`, `.mypy_cache/`
+- **Editor files**: `.vscode/`, `.idea/`, `*.swp`, `*~`
+- **OS files**: `.DS_Store`, `Thumbs.db`
+- **Build artifacts**: `dist/`, `build/`
+
+These patterns are always active and work alongside your custom `.dotxignore` files.
+
+**Escape hatch**: If you *do* want a normally-ignored file installed, use negation patterns:
+
+```bash
+# In your package/.dotxignore
+!important-notes.md
+!INSTALL.md
+```
+
 #### Global ignore file
 
 Create a global ignore file at `~/.config/dotx/ignore` to exclude patterns from all packages:

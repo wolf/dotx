@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.2.0] - 2026-01-06
+
+### Added
+- Documentation files (`README`, `README.*`, `*.md`) now automatically ignored by default
+- New "Built-in ignore patterns" section in README documenting all default ignores
+- Documented negation pattern escape hatch for installing normally-ignored files
+
+### Changed
+- Enhanced built-in dotxignore patterns to prevent documentation files from being installed to home directory
+
 ## [3.1.3] - 2026-01-06
 
 ### Fixed

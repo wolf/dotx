@@ -9,6 +9,11 @@
 #   *.pyc            - wildcard
 #   !important.pyc   - exception (don't ignore this one)
 
+# Documentation files (typically for version control/GitHub, not installation)
+README
+README.*
+*.md
+
 # Version control
 .git
 .gitignore
