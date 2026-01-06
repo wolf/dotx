@@ -203,6 +203,13 @@ def extract_plan(plan: Plan, actions: set[Action]) -> list[PlanNode]:
     Sorts by relative_source_path (top-down order) and includes only PlanNodes
     whose action is in the provided set. This makes it easy to grab just failures,
     or just the actions for which actual work is needed (e.g., {Action.LINK, Action.CREATE}).
+
+    DESIGN: This function is called multiple times per plan with different action filters
+    (e.g., check for failures, count files, count directories, execute actions). Since each
+    package has one plan, this means repeated sorts of the same data. I considered caching
+    the sorted result to avoid repeated O(n log n) sorts, but decided against it: typical
+    dotfile packages have <100 files, making the overhead negligible, and keeping this
+    function stateless is simpler and more maintainable than managing cache invalidation.
     """
     return [
         node
