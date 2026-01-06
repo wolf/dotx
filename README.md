@@ -526,6 +526,30 @@ When installing multiple packages, `dotx` provides **all-or-nothing semantics**:
 
 This design ensures that either all packages install successfully, or none do—you won't end up with a partially-installed package or an inconsistent database.
 
+#### Best-Effort Installation
+
+**Question:** What if I want to install multiple packages but continue even if some fail?
+
+**Answer:** Use a shell loop instead of passing all packages at once:
+
+```bash
+# Install what you can, report failures
+for pkg in bash vim tmux git helix; do
+    dotx install ~/dotfiles/$pkg || echo "✗ Failed to install $pkg"
+done
+
+# Or reinstall from database, skipping failures
+dotx list --as-commands | while read cmd; do
+    $cmd || true
+done
+```
+
+**Why doesn't `dotx` have a `--force` or `--best-effort` flag?**
+
+The all-or-nothing transactional guarantee is intentional. When `dotx install` succeeds, you know exactly what state you're in. Best-effort mode would trade that clarity for convenience you can already get with a one-line shell loop.
+
+This follows the Unix philosophy: let `dotx` do one thing well (transactional package installation), and let the shell handle control flow. Your shell script can implement any retry/continue-on-error logic that fits your specific needs.
+
 ### Changelog
 
 See [CHANGELOG.md](CHANGELOG.md) for version history and release notes.
