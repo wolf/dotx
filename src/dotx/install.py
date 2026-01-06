@@ -12,6 +12,7 @@ Exported functions:
 import os
 from pathlib import Path
 
+import pathspec
 from loguru import logger
 
 from dotx.hierarchy import HierarchicalPatternMatcher
@@ -75,7 +76,6 @@ def _matches_always_create_at_exact_depth(
         # If this pattern has the same depth, check if it matches this path
         if pattern_depth == path_depth:
             # Create a single-pattern spec to test just this pattern
-            import pathspec
             test_spec = pathspec.PathSpec.from_lines("gitwildmatch", [pattern])
             path_str = str(path) + "/"
             if test_spec.match_file(path_str):
