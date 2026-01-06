@@ -69,7 +69,8 @@ def _matches_always_create_at_exact_depth(
     # Check each pattern to see if any have the same depth
     for pattern_obj in matcher.spec.patterns:
         # PathSpec.patterns returns Pattern objects, access pattern string
-        pattern = pattern_obj.pattern if hasattr(pattern_obj, "pattern") else str(pattern_obj)
+        # Ensure we get a string for type safety
+        pattern: str = str(getattr(pattern_obj, "pattern", pattern_obj))
         # Normalize pattern: strip leading/trailing slashes
         pattern_clean = pattern.strip("/")
         if not pattern_clean:
