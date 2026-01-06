@@ -21,3 +21,4 @@ htmlcov/
 # Local environment and configuration
 .envrc.local
 .claude/
+*.local-only.md
