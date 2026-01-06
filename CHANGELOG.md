@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.1.3] - 2026-01-06
+
+### Fixed
+- Type checker error in pattern extraction code: Fixed `ty` type inference issue with pattern object attribute access
+
 ## [3.1.2] - 2026-01-06
 
 ### Fixed
