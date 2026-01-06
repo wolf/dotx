@@ -132,6 +132,13 @@ def execute_plan(
                 command = f"rm {destination}"
             case Action.UNLINK:
                 command = f"rm {'-rf ' if step.is_dir else ''}{destination}"
+            case Action.NONE | Action.SKIP | Action.EXISTS:
+                # No command needed for these actions
+                command = None
+            case _:
+                # Unexpected action type
+                logger.warning(f"Unexpected action {step.action} in build_shell_command")
+                command = None
         return command
 
     def execute_plan_step(step: PlanNode):
