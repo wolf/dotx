@@ -2,7 +2,7 @@
 
 from datetime import datetime
 from pathlib import Path
-from typing import Annotated, Optional
+from typing import Annotated
 
 import typer
 from loguru import logger
@@ -117,7 +117,7 @@ def register_commands(app: typer.Typer):
     @app.command()
     def verify(
         package: Annotated[
-            Optional[Path],
+            Path | None,
             typer.Argument(
                 help="Package to verify (all packages if not specified)",
                 exists=True,
@@ -227,11 +227,11 @@ def register_commands(app: typer.Typer):
             typer.Option("--dry-run", help="Show what would be added without modifying the database"),
         ] = False,
         max_depth: Annotated[
-            Optional[int],
+            int | None,
             typer.Option(help="Maximum depth to scan (default: 1 for home, 3 for config)"),
         ] = None,
         scan_paths: Annotated[
-            Optional[list[Path]],
+            list[Path] | None,
             typer.Option(help="Additional paths to scan"),
         ] = None,
         simple: Annotated[
@@ -239,7 +239,7 @@ def register_commands(app: typer.Typer):
             typer.Option(help="Simple scan: only home directory depth 1, skip ~/.config"),
         ] = False,
         package_root: Annotated[
-            Optional[list[Path]],
+            list[Path] | None,
             typer.Option("--package-root", help="Only include packages under these directories (can specify multiple)"),
         ] = None,
         clean: Annotated[

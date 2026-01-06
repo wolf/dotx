@@ -7,7 +7,7 @@ are defined in the commands subpackage.
 
 import sys
 from pathlib import Path
-from typing import Annotated, Optional
+from typing import Annotated
 
 import click
 import typer
@@ -31,7 +31,7 @@ def version_callback(value: bool):
         raise typer.Exit()
 
 
-def configure_logging(debug: bool, verbose: bool, log: Optional[Path]):
+def configure_logging(debug: bool, verbose: bool, log: Path | None):
     """Configure logging based on CLI options."""
     logger.remove()  # Remove default handler
 
@@ -62,11 +62,11 @@ def main(
         typer.Option("--verbose/--quiet", help="Enable verbose output / suppress output"),
     ] = False,
     log: Annotated[
-        Optional[Path],
+        Path | None,
         typer.Option(help="Where to write the log (defaults to stderr)"),
     ] = None,
     target: Annotated[
-        Optional[Path],
+        Path | None,
         typer.Option(
             help="Where to install (defaults to $HOME)",
             exists=True,
@@ -80,7 +80,7 @@ def main(
         typer.Option("--dry-run/--no-dry-run", help="Just echo; don't actually (un)install"),
     ] = False,
     version: Annotated[
-        Optional[bool],
+        bool | None,
         typer.Option("--version", "-V", callback=version_callback, is_eager=True, help="Show version and exit."),
     ] = None,
 ):
