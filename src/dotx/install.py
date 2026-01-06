@@ -7,6 +7,12 @@ into the destination root.  That plan can then be executed by `dotx.plan.execute
 Exported functions:
     plan_install
     plan_install_paths
+
+DESIGN: The "dot-" prefix for renaming (e.g., "dot-bashrc" → ".bashrc") is intentionally not extracted
+to a constant. Unlike arbitrary magic values, "dot-" is self-documenting and widely understood as a
+dotfile convention. Extracting it to something like RENAME_PREFIX would make the code less clear, not
+more clear, since the literal string immediately conveys its purpose. This is a semantic convention
+(like "http://" or ".git"), not configuration that might change.
 """
 
 import os
