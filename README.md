@@ -466,7 +466,65 @@ Cleaning orphaned entries...
 
 ### How it works
 
-*Documentation to be expanded*
+`dotx` uses a three-phase algorithm to safely install dotfiles:
+
+#### Phase 1: Discovery (Search Down)
+
+Starting from the source package root, `dotx` walks the directory tree **top-down**:
+
+1. **Respects `.dotxignore` rules** - Skips files/directories matching patterns
+2. **Handles renaming** - Detects `dot-` prefixes (e.g., `dot-bashrc` → `.bashrc`)
+3. **Builds a plan** - Creates a `PlanNode` for each file/directory with:
+   - Source and destination paths (accounting for renames)
+   - Whether it's a file or directory
+   - Initial action: `NONE` (decided in next phase)
+
+Top-down traversal is critical: parent directories must be processed before children so destination paths can be calculated correctly when parents are renamed.
+
+#### Phase 2: Decision (Search Up)
+
+With all paths discovered, `dotx` walks the tree **bottom-up** to decide what to do with each item:
+
+For each directory, in bottom-up order:
+
+1. **Check children** - Do any require renaming?
+2. **Check destination** - Does it already exist?
+3. **Check patterns** - Does it match an always-create pattern (like `.config`)?
+4. **Decide action**:
+   - **EXISTS** - Directory already exists at destination (merge into it)
+   - **CREATE** - Must make real directory because:
+     - Children need renaming, OR
+     - Matches always-create pattern (e.g., `.config` must be real so multiple packages can use it)
+   - **LINK** - Can symlink the whole directory (no conflicts, no special rules)
+   - **FAIL** - Would overwrite an existing regular file
+   - **SKIP** - Parent will be linked, so children need no action
+
+5. **Update ancestors** - If creating a directory, mark parent directories for creation up to one that already exists
+
+Bottom-up traversal ensures we know about all children before deciding what to do with their parent.
+
+#### Phase 3: Execution
+
+Finally, `dotx` executes the plan in **top-down** order:
+
+- **CREATE** - Make real directories with `Path.mkdir()`
+- **LINK** - Create symlinks with `Path.symlink_to()`
+- **SKIP/EXISTS** - No action needed
+- **FAIL** - Report conflict and abort
+
+All operations use Python's `pathlib` API for cross-platform compatibility. In dry-run mode, equivalent shell commands (like `ln -s`) are displayed to show what would happen.
+
+#### Transactional Guarantees
+
+When installing multiple packages, `dotx` provides **all-or-nothing semantics**:
+
+1. **Pre-flight validation** - Plans are built for ALL packages and checked for conflicts BEFORE any filesystem changes are made. If ANY package would fail (e.g., would overwrite an existing file), the entire operation is aborted with no changes.
+
+2. **Database transaction** - All installation records are written within a SQLite transaction. The database context manager commits on success or rolls back on any exception, ensuring the database remains consistent even if execution is interrupted.
+
+3. **Filesystem execution** - Once validation passes, filesystem changes (creating directories, making symlinks) proceed in sequence. While filesystem operations themselves aren't transactional (you can't "undo" a created directory), the pre-flight validation minimizes risk by catching conflicts before any changes are made.
+
+This design ensures that either all packages install successfully, or none do—you won't end up with a partially-installed package or an inconsistent database.
 
 ### Changelog
 
