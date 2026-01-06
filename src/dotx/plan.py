@@ -120,7 +120,8 @@ def execute_plan(
         try:
             source = source.relative_to(destination.parent)
         except ValueError:
-            pass
+            # Can't make relative (e.g., different drives), use absolute path
+            logger.debug(f"Using absolute path for {source} (can't make relative to {destination.parent})")
 
         match step.action:
             case Action.CREATE:
@@ -144,7 +145,8 @@ def execute_plan(
         try:
             source = source.relative_to(destination.parent)
         except ValueError:
-            pass
+            # Can't make relative (e.g., different drives), use absolute path
+            logger.debug(f"Using absolute path for {source} (can't make relative to {destination.parent})")
 
         match step.action:
             case Action.CREATE:
