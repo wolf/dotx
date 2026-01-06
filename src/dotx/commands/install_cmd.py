@@ -6,12 +6,12 @@ from typing import Annotated
 import typer
 from loguru import logger
 from rich.console import Console
-from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskProgressColumn
 
+from dotx.commands.progress import execute_plans_with_progress
 from dotx.database import InstallationDB
 from dotx.install import plan_install
 from dotx.options import is_verbose_mode
-from dotx.plan import Action, Plan, execute_plan, extract_plan, log_extracted_plan
+from dotx.plan import Action, Plan, extract_plan, log_extracted_plan
 
 
 def register_command(app: typer.Typer):
@@ -63,35 +63,17 @@ def register_command(app: typer.Typer):
                     console.print()
 
             if can_install:
-                # Count total actions
-                total_actions = sum(
-                    len(extract_plan(plan, {Action.LINK, Action.CREATE}))
-                    for _, plan in plans
-                )
-
                 # Open database and execute all plans with progress
                 with InstallationDB() as db:
-                    if verbose:
-                        # Verbose: show each file
-                        for source_package, plan in plans:
-                            console.print(f"[cyan]Installing {source_package.name}...[/cyan]")
-                            for node in extract_plan(plan, {Action.LINK, Action.CREATE}):
-                                console.print(f"  {node.relative_destination_path}")
-                            execute_plan(source_package, target_path, plan, db)
-                    else:
-                        # Default: show progress bar
-                        with Progress(
-                            SpinnerColumn(),
-                            TextColumn("[progress.description]{task.description}"),
-                            BarColumn(),
-                            TaskProgressColumn(),
-                            console=console,
-                        ) as progress:
-                            task = progress.add_task("Installing...", total=total_actions)
-                            for source_package, plan in plans:
-                                progress.update(task, description=f"Installing {source_package.name}...")
-                                execute_plan(source_package, target_path, plan, db)
-                                progress.advance(task, len(extract_plan(plan, {Action.LINK, Action.CREATE})))
+                    execute_plans_with_progress(
+                        plans,
+                        target_path,
+                        {Action.LINK, Action.CREATE},
+                        "Installing",
+                        console,
+                        verbose,
+                        db,
+                    )
 
                 # Show summary
                 total_files = sum(
