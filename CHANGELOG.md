@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.1.2] - 2026-01-06
+
+### Fixed
+- **Critical bug**: Dry-run mode was incorrectly defaulting to `True`, causing commands to not execute when context wasn't properly set
+- Exception handling in `plan.py` now logs debug messages instead of silently swallowing errors when path resolution fails
+- Added explicit handling for all `Action` enum types in `build_shell_command` for defensive programming
+
+### Changed
+- Extracted duplicate progress display logic into `commands/progress.py` module (eliminated ~30 lines of duplication)
+- Standardized all type hints to modern Python 3.10+ syntax (`Type | None` instead of `Optional[Type]`)
+- Moved `pathspec` import to module level in `install.py` (minor performance improvement)
+
+### Documentation
+- Added comprehensive "How it works" section to README documenting the three-phase algorithm
+- Added design documentation explaining why `extract_plan` results are not cached
+- Added design documentation explaining why "dot-" prefix is kept as a literal string
+- Added best-effort installation guide showing how to use shell loops for fault-tolerant multi-package installs
+- Added transactional guarantees explanation in README
+
+### Internal
+- Added `.gitignore` pattern for `*.local-only.md` files (personal planning documents)
+
 ## [3.1.1] - 2026-01-05
 
 ### Fixed
