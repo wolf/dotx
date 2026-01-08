@@ -30,6 +30,16 @@ purpose tool.  It's made for installing a link-farm to any kind of package from 
 it for other purposes, but it's tuned for its goal.  It does the renaming task if you want it, but if your source files
 are named simply `.bashrc` it works just as well.
 
+### How to install
+
+It's an ordinary PyPI-supplied Python package providing CLI entry points, so you can install it with `pip` or any other tool you like. I think the best way to install it is this:
+
+```bash
+uv tool install dotx
+```
+
+The current version is: v3.2.0
+
 ### The user interface
 ```
 Usage: dotx [OPTIONS] COMMAND [ARGS]...
