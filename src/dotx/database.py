@@ -315,12 +315,43 @@ class InstallationDB:
 
         return [dict(row) for row in cursor.fetchall()]
 
+    def _verify_symlink(self, target: Path, source_package_root: Path) -> dict | None:
+        """
+        Verify a symlink points to the correct source.
+
+        Returns an issue dict if there's a problem, None if symlink is correct.
+        """
+        try:
+            link_target = target.readlink()
+            actual_target = target.resolve()
+
+            # Check if it's a broken symlink (target doesn't exist)
+            if not actual_target.exists():
+                return {
+                    "issue": "Broken symlink (target missing)",
+                    "actual": str(link_target),
+                }
+
+            # Check if symlink points under source_package_root
+            try:
+                actual_target.relative_to(source_package_root)
+                return None  # Symlink is correct
+            except ValueError:
+                return {
+                    "issue": "Symlink points to wrong target",
+                    "expected": str(source_package_root),
+                    "actual": str(link_target),
+                }
+        except OSError:
+            return {"issue": "Cannot read symlink target"}
+
     def verify_installations(self, package_root: Path, package_name: str) -> list[dict]:
         """
         Verify installations for a package against filesystem.
 
         Checks if database records match actual filesystem state. Each issue
-        is a dict with keys: target_path, issue (description), and link_type.
+        is a dict with keys: target_path, issue (description), link_type, and
+        optionally expected/actual for symlink target mismatches.
         """
         if not self.conn:
             raise RuntimeError("Database not connected")
@@ -331,29 +362,37 @@ class InstallationDB:
         for install in installations:
             target = Path(install["target_path"])
             link_type = install["link_type"]
+            source_package_root = Path(install["source_package_root"])
 
-            # Check if file exists
-            if not target.exists():
-                issues.append({
-                    "target_path": str(target),
-                    "issue": "File missing (in DB but not on filesystem)",
-                    "link_type": link_type,
-                })
-                continue
-
-            # Check if it's a symlink (for file and directory types)
             if link_type in ("file", "directory"):
                 if not target.is_symlink():
+                    if target.exists():
+                        issue = "Not a symlink (regular file/dir exists instead)"
+                    else:
+                        issue = "Missing (not on filesystem)"
                     issues.append({
                         "target_path": str(target),
-                        "issue": "Not a symlink (should be symlink)",
+                        "issue": issue,
                         "link_type": link_type,
                     })
+                else:
+                    symlink_issue = self._verify_symlink(target, source_package_root)
+                    if symlink_issue:
+                        symlink_issue["target_path"] = str(target)
+                        symlink_issue["link_type"] = link_type
+                        issues.append(symlink_issue)
+
             elif link_type == "created_dir":
-                if not target.is_dir() or target.is_symlink():
+                if not target.exists():
+                    issue = "Missing (not on filesystem)"
+                elif not target.is_dir() or target.is_symlink():
+                    issue = "Not a regular directory (should be created dir)"
+                else:
+                    issue = None
+                if issue:
                     issues.append({
                         "target_path": str(target),
-                        "issue": "Not a regular directory (should be created dir)",
+                        "issue": issue,
                         "link_type": link_type,
                     })
 

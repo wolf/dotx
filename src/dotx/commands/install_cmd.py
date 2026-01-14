@@ -56,10 +56,18 @@ def register_command(app: typer.Typer):
                 if failures:
                     can_install = False
                     console.print(
-                        f"[red]✗ Error: can't install {source_package.name} - would overwrite:[/red]"
+                        f"[red]✗ Error: can't install {source_package.name} - conflicts detected:[/red]"
                     )
                     for plan_node in failures:
-                        console.print(f"  {target_path / plan_node.relative_destination_path}")
+                        dest_path = target_path / plan_node.relative_destination_path
+                        if dest_path.is_symlink():
+                            try:
+                                link_target = dest_path.readlink()
+                                console.print(f"  {dest_path} [dim](symlink → {link_target})[/dim]")
+                            except OSError:
+                                console.print(f"  {dest_path} [dim](broken symlink)[/dim]")
+                        else:
+                            console.print(f"  {dest_path} [dim](existing file)[/dim]")
                     console.print()
 
             if can_install:

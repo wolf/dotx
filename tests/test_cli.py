@@ -42,9 +42,9 @@ def test_cli_install_conflict_detection(tmp_path):
 
     assert result.exit_code == 0  # CLI doesn't return error code, just refuses
     assert "can't install" in result.output.lower()
-    assert "would overwrite" in result.output.lower()
+    assert "conflicts detected" in result.output.lower()
+    assert "existing file" in result.output.lower()
     assert "Refusing to install" in result.output
-    assert "conflicts detected" in result.output
 
 
 def test_cli_install_with_verbose(tmp_path, isolated_db):
@@ -295,5 +295,7 @@ def test_cli_uninstall_dry_run_shows_indicator(tmp_path, isolated_db):
     # Should clearly indicate dry-run mode
     assert "[DRY RUN]" in result.output
     assert "Would remove" in result.output
+    # Should show the rm command that would be executed
+    assert "rm" in result.output
     # File should still exist after dry-run
     assert (target / "file1").exists()

@@ -289,6 +289,59 @@ def test_install_normal_file_fail(tmp_path):
     )
 
 
+def test_install_symlink_to_wrong_target_fails(tmp_path):
+    """Test that existing symlink pointing to wrong target is marked FAIL."""
+    source_package_root = tmp_path / "source"
+    destination_root = tmp_path / "dest"
+    source_package_root.mkdir()
+    destination_root.mkdir()
+    file_path = Path("file1")
+    (source_package_root / file_path).write_text("content")
+
+    # Create a symlink pointing to a different location
+    wrong_target = tmp_path / "wrong_target"
+    wrong_target.write_text("wrong content")
+    (destination_root / file_path).symlink_to(wrong_target)
+
+    plan = plan_install(source_package_root, destination_root)
+
+    assert plan[file_path].action == Action.FAIL
+
+
+def test_install_broken_symlink_fails(tmp_path):
+    """Test that existing broken symlink is marked FAIL."""
+    source_package_root = tmp_path / "source"
+    destination_root = tmp_path / "dest"
+    source_package_root.mkdir()
+    destination_root.mkdir()
+    file_path = Path("file1")
+    (source_package_root / file_path).write_text("content")
+
+    # Create a broken symlink (target doesn't exist)
+    (destination_root / file_path).symlink_to("/nonexistent/path")
+
+    plan = plan_install(source_package_root, destination_root)
+
+    assert plan[file_path].action == Action.FAIL
+
+
+def test_install_symlink_to_our_source_skips(tmp_path):
+    """Test that existing symlink pointing to our source is marked SKIP."""
+    source_package_root = tmp_path / "source"
+    destination_root = tmp_path / "dest"
+    source_package_root.mkdir()
+    destination_root.mkdir()
+    file_path = Path("file1")
+    (source_package_root / file_path).write_text("content")
+
+    # Create a symlink pointing to our source (already installed)
+    (destination_root / file_path).symlink_to(source_package_root / file_path)
+
+    plan = plan_install(source_package_root, destination_root)
+
+    assert plan[file_path].action == Action.SKIP
+
+
 def test_install_hidden_file(tmp_path):
     source_package_root = tmp_path / "source"
     destination_root = tmp_path / "dest"

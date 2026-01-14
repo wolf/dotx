@@ -152,9 +152,13 @@ def register_commands(app: typer.Typer):
                 if issues:
                     console.print(f"\n[bold cyan]{pkg_name}:[/bold cyan]")
                     for issue in issues:
-                        console.print(f"  [red]✗[/red] {issue["target_path"]}")
-                        console.print(f"    [dim]Issue: {issue["issue"]}[/dim]")
-                        console.print(f"    [dim]Expected: {issue["link_type"]}[/dim]")
+                        console.print(f"  [red]✗[/red] {issue['target_path']}")
+                        console.print(f"    [dim]Issue: {issue['issue']}[/dim]")
+                        console.print(f"    [dim]Expected type: {issue['link_type']}[/dim]")
+                        if "expected" in issue:
+                            console.print(f"    [dim]Expected source: {issue['expected']}[/dim]")
+                        if "actual" in issue:
+                            console.print(f"    [dim]Actual target: {issue['actual']}[/dim]")
                     total_issues += len(issues)
 
             if total_issues == 0:
@@ -409,6 +413,7 @@ def register_commands(app: typer.Typer):
                 with InstallationDB() as db:
                     all_packages = db.get_all_packages()
                     total_would_clean = 0
+                    total_dangling_symlinks = 0
 
                     for pkg_info in all_packages:
                         pkg_root = Path(pkg_info["package_root"])
@@ -416,10 +421,16 @@ def register_commands(app: typer.Typer):
                         orphaned = db.get_orphaned_entries(pkg_root, pkg_name)
                         if orphaned:
                             total_would_clean += len(orphaned)
+                            # Count dangling symlinks that would be removed
+                            dangling = [e for e in orphaned if Path(e["target_path"]).is_symlink()]
+                            total_dangling_symlinks += len(dangling)
                             console.print(f"  {pkg_name}: {len(orphaned)} orphaned entry(ies)")
+                            if dangling and verbose:
+                                for entry in dangling:
+                                    console.print(f"    [dim]Would remove: {entry['target_path']}[/dim]")
 
                     if total_would_clean > 0:
-                        console.print(f"[yellow]Would remove {total_would_clean} orphaned entry(ies).[/yellow]")
+                        console.print(f"[yellow]Would remove {total_would_clean} orphaned DB entry(ies) and {total_dangling_symlinks} dangling symlink(s).[/yellow]")
                     else:
                         console.print("[green]No orphaned entries to clean.[/green]")
 
@@ -462,18 +473,37 @@ def register_commands(app: typer.Typer):
                 console.print("\n[cyan]Cleaning orphaned entries...[/cyan]")
                 all_packages = db.get_all_packages()
                 total_cleaned = 0
+                total_symlinks_removed = 0
 
                 for pkg_info in all_packages:
                     pkg_root = Path(pkg_info["package_root"])
                     pkg_name = pkg_info["package_name"]
+
+                    # Get orphaned entries before cleaning to remove dangling symlinks
+                    orphaned = db.get_orphaned_entries(pkg_root, pkg_name)
+
+                    # Remove dangling symlinks from filesystem
+                    for entry in orphaned:
+                        target_path = Path(entry["target_path"])
+                        if target_path.is_symlink():
+                            try:
+                                target_path.unlink()
+                                total_symlinks_removed += 1
+                                logger.info(f"Removed dangling symlink: {target_path}")
+                                if verbose:
+                                    console.print(f"  [dim]Removed: {target_path}[/dim]")
+                            except OSError as e:
+                                logger.warning(f"Failed to remove symlink {target_path}: {e}")
+
+                    # Clean database entries
                     cleaned = db.clean_orphaned_entries(pkg_root, pkg_name)
                     if cleaned > 0:
                         total_cleaned += cleaned
                         if verbose:
                             console.print(f"  Cleaned {cleaned} orphaned entry(ies) from {pkg_name}")
 
-                if total_cleaned > 0:
-                    console.print(f"[green]✓ Removed {total_cleaned} orphaned entry(ies).[/green]")
+                if total_cleaned > 0 or total_symlinks_removed > 0:
+                    console.print(f"[green]✓ Removed {total_cleaned} orphaned DB entry(ies) and {total_symlinks_removed} dangling symlink(s).[/green]")
                 else:
                     console.print("[green]✓ No orphaned entries found.[/green]")
 

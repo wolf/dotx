@@ -147,12 +147,27 @@ def plan_install(source_package_root: Path, destination_root: Path) -> Plan:
             # we can't link the whole directory - must CREATE it instead
             if plan[child_relative_source_path].requires_rename:
                 found_children_to_rename = True
-            # Fail if we would overwrite an existing regular file
+            # Fail if we would overwrite an existing file or symlink pointing elsewhere
             destination_path = (
                 destination_root
                 / plan[child_relative_source_path].relative_destination_path
             )
-            if destination_path.exists() and destination_path.is_file():
+            if destination_path.is_symlink():
+                # Symlink exists - only OK if it already points to our source
+                expected_source = (
+                    source_package_root / plan[child_relative_source_path].relative_source_path
+                ).resolve()
+                try:
+                    actual_target = destination_path.resolve()
+                except OSError:
+                    # Broken symlink - treat as conflict
+                    actual_target = None
+                if actual_target == expected_source:
+                    # Already installed correctly - skip it
+                    plan[child_relative_source_path].action = Action.SKIP
+                else:
+                    plan[child_relative_source_path].action = Action.FAIL
+            elif destination_path.exists() and destination_path.is_file():
                 plan[child_relative_source_path].action = Action.FAIL
 
         # Second pass: decide action for current directory based on children and destination state

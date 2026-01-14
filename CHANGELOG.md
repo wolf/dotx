@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.2.2] - 2026-01-14
+
+### Fixed
+- **Symlink conflict detection**: Installing now properly detects existing symlinks pointing to wrong targets or broken symlinks, showing informative error messages instead of stack traces.
+- **verify command**: Now correctly detects symlinks pointing to wrong targets and broken symlinks, with detailed output showing expected vs actual targets.
+- **sync --clean**: Now removes dangling symlinks from filesystem when cleaning orphaned database entries, preventing blocked reinstalls.
+
+### Changed
+- Conflict error messages now show context: `(symlink → target)`, `(broken symlink)`, or `(existing file)`.
+- Refactored `verify_installations` for cleaner symlink verification logic.
+
+### Added
+- Tests for symlink conflict detection (wrong target, broken, already installed)
+- Tests for verify command symlink detection
+
 ## [3.2.1] - 2026-01-14
 
 ### Fixed
@@ -223,7 +238,8 @@ EOF
 dotx install bash
 ```
 
-[Unreleased]: https://github.com/wolf/dotx/compare/v3.2.1...HEAD
+[Unreleased]: https://github.com/wolf/dotx/compare/v3.2.2...HEAD
+[3.2.2]: https://github.com/wolf/dotx/compare/v3.2.1...v3.2.2
 [3.2.1]: https://github.com/wolf/dotx/compare/v3.2.0...v3.2.1
 [3.2.0]: https://github.com/wolf/dotx/compare/v3.1.3...v3.2.0
 [3.1.3]: https://github.com/wolf/dotx/compare/v3.1.2...v3.1.3

@@ -117,6 +117,52 @@ def test_verify_not_symlink(tmp_path):
         assert "not a symlink" in issues[0]["issue"].lower()
 
 
+def test_verify_wrong_symlink_target(tmp_path):
+    """Test 'dotx verify' detects symlinks pointing to wrong target."""
+    db_path = tmp_path / "test.db"
+    package = tmp_path / "package"
+    package.mkdir()
+    (package / "dot-bashrc").write_text("# correct source")
+
+    target_file = tmp_path / ".bashrc"
+    # Create symlink pointing to wrong location
+    wrong_target = tmp_path / "wrong-file"
+    wrong_target.write_text("# wrong target")
+    target_file.symlink_to(wrong_target)
+
+    # Record as if it were pointing to package
+    with InstallationDB(db_path) as db:
+        db.record_installation(tmp_path, "package", package, target_file, "file")
+
+    # Verify - should detect wrong target
+    with InstallationDB(db_path) as db:
+        issues = db.verify_installations(tmp_path, "package")
+        assert len(issues) == 1
+        assert "wrong target" in issues[0]["issue"].lower()
+        assert "actual" in issues[0]
+
+
+def test_verify_broken_symlink(tmp_path):
+    """Test 'dotx verify' detects broken symlinks."""
+    db_path = tmp_path / "test.db"
+    package = tmp_path / "package"
+    package.mkdir()
+
+    target_file = tmp_path / ".bashrc"
+    # Create symlink pointing to nonexistent file
+    target_file.symlink_to("/nonexistent/path")
+
+    # Record installation
+    with InstallationDB(db_path) as db:
+        db.record_installation(tmp_path, "package", package, target_file, "file")
+
+    # Verify - should detect broken symlink
+    with InstallationDB(db_path) as db:
+        issues = db.verify_installations(tmp_path, "package")
+        assert len(issues) == 1
+        assert "broken" in issues[0]["issue"].lower()
+
+
 def test_show_package(tmp_path):
     """Test 'dotx show' displays package installation details."""
     db_path = tmp_path / "test.db"
@@ -557,7 +603,7 @@ def test_cli_sync_clean_dry_run(tmp_path, monkeypatch):
 
     assert result.exit_code == 0
     assert "Would clean orphaned entries" in result.output
-    assert "Would remove 1 orphaned entry(ies)" in result.output
+    assert "Would remove 1 orphaned DB entry(ies)" in result.output
     assert "Dry run" in result.output
 
 
@@ -604,7 +650,7 @@ def test_cli_sync_clean(tmp_path, monkeypatch):
 
     assert result.exit_code == 0
     assert "Cleaning orphaned entries" in result.output
-    assert "Removed 1 orphaned entry(ies)" in result.output
+    assert "Removed 1 orphaned DB entry(ies)" in result.output
 
     # Check database now has only 1 entry
     with InstallationDB() as db:
