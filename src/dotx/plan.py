@@ -183,11 +183,12 @@ def execute_plan(
     # This does duplicate the loop code, but avoids thousands of repeated is_dry_run() calls
     # in installations with many files.
     if is_dry_run():
+        print("[DRY RUN] Would execute the equivalent of:")
         for step in steps:
             command = build_shell_command(step)
             if command is not None:
                 logger.info(command)
-                print(command)
+                print(f"  {command}")
     else:
         for step in steps:
             command = build_shell_command(step)

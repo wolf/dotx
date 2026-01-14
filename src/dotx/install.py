@@ -193,8 +193,9 @@ def plan_install(source_package_root: Path, destination_root: Path) -> Plan:
                 plan=plan,
             )
             logger.debug(f"Directory {relative_destination_root_path} matches always-create pattern, will CREATE")
-        else:
+        elif plan[relative_root_path].action != Action.CREATE:
             # Directory doesn't exist and has no rename conflicts - we can link it
+            # But only if it wasn't already marked CREATE by a descendant's mark_all_ancestors
             plan[relative_root_path].action = Action.LINK
 
         # Third pass: mark children based on what we decided for this directory

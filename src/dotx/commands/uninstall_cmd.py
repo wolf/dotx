@@ -9,7 +9,7 @@ from rich.console import Console
 
 from dotx.commands.progress import execute_plans_with_progress
 from dotx.database import InstallationDB
-from dotx.options import is_verbose_mode
+from dotx.options import is_dry_run, is_verbose_mode
 from dotx.plan import Action, Plan, extract_plan, log_extracted_plan
 from dotx.uninstall import plan_uninstall
 
@@ -67,6 +67,9 @@ def register_command(app: typer.Typer):
                 len(extract_plan(plan, {Action.UNLINK}))
                 for _, plan in plans
             )
-            console.print(f"\n[green]✓ Removed {total_removed} symlink(s) from {len(sources)} package(s)[/green]")
+            if is_dry_run(ctx):
+                console.print(f"\n[yellow][DRY RUN] Would remove {total_removed} symlink(s) from {len(sources)} package(s)[/yellow]")
+            else:
+                console.print(f"\n[green]✓ Removed {total_removed} symlink(s) from {len(sources)} package(s)[/green]")
 
         logger.info("uninstall finished")

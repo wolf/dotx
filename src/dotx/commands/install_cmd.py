@@ -10,7 +10,7 @@ from rich.console import Console
 from dotx.commands.progress import execute_plans_with_progress
 from dotx.database import InstallationDB
 from dotx.install import plan_install
-from dotx.options import is_verbose_mode
+from dotx.options import is_dry_run, is_verbose_mode
 from dotx.plan import Action, Plan, extract_plan, log_extracted_plan
 
 
@@ -92,7 +92,10 @@ def register_command(app: typer.Typer):
                     summary_parts.append(f"{total_dirs} dir(s)")
 
                 summary = " and ".join(summary_parts) if summary_parts else "nothing"
-                console.print(f"\n[green]✓ Installed {summary} from {len(sources)} package(s)[/green]")
+                if is_dry_run(ctx):
+                    console.print(f"\n[yellow][DRY RUN] Would install {summary} from {len(sources)} package(s)[/yellow]")
+                else:
+                    console.print(f"\n[green]✓ Installed {summary} from {len(sources)} package(s)[/green]")
             else:
                 console.print("[red]✗ Refusing to install - conflicts detected[/red]")
 

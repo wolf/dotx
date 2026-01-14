@@ -246,3 +246,54 @@ def test_options_functions():
     result = runner.invoke(app, ["--verbose", "--debug", "--dry-run", "debug"])
 
     assert len(result.output) == 0
+
+
+def test_cli_install_dry_run_shows_indicator(tmp_path):
+    """Test install with --dry-run clearly indicates dry-run mode in output."""
+    source = tmp_path / "source"
+    source.mkdir()
+    target = tmp_path / "target"
+    target.mkdir()
+
+    # Create source file
+    (source / "file1").write_text("content1")
+
+    runner = CliRunner()
+
+    # Install with --dry-run
+    result = runner.invoke(app, [f"--target={target}", "--dry-run", "install", str(source)])
+
+    assert result.exit_code == 0
+    # Should clearly indicate dry-run mode
+    assert "[DRY RUN]" in result.output
+    assert "Would install" in result.output
+    # File should NOT actually be created
+    assert not (target / "file1").exists()
+
+
+def test_cli_uninstall_dry_run_shows_indicator(tmp_path, isolated_db):
+    """Test uninstall with --dry-run clearly indicates dry-run mode in output."""
+    source = tmp_path / "source"
+    source.mkdir()
+    target = tmp_path / "target"
+    target.mkdir()
+
+    # Create and install source file
+    (source / "file1").write_text("content1")
+
+    runner = CliRunner()
+
+    # First install for real
+    result = runner.invoke(app, [f"--target={target}", "install", str(source)])
+    assert result.exit_code == 0
+    assert (target / "file1").exists()
+
+    # Uninstall with --dry-run
+    result = runner.invoke(app, [f"--target={target}", "--dry-run", "uninstall", str(source)])
+
+    assert result.exit_code == 0
+    # Should clearly indicate dry-run mode
+    assert "[DRY RUN]" in result.output
+    assert "Would remove" in result.output
+    # File should still exist after dry-run
+    assert (target / "file1").exists()

@@ -543,3 +543,86 @@ def test_install_renamed_dir_inside_renamed_dir(tmp_path):
         Action.LINK, True, dir2_path, Path(".SIMPLE-DIR1/.SIMPLE-DIR2"), True
     )
     assert plan[file_path].action == Action.SKIP
+
+
+def test_install_deep_nesting_with_renamed_leaf(tmp_path):
+    """
+    Test that deeply nested directories with a renamed file at the leaf install correctly.
+
+    This tests the fix for a bug where:
+    - Deep directory structure: a/b/c/d/e/f/dot-deepfile
+    - The leaf file needs renaming (dot-deepfile -> .deepfile)
+    - Directory f gets marked CREATE (because child needs renaming)
+    - All parent directories should also be CREATE (via mark_all_ancestors)
+
+    Bug was: parent dirs were overwritten to LINK when processed bottom-up,
+    causing FileExistsError when we tried to CREATE f under a symlinked parent.
+
+    Fix: preserve CREATE if already set by a descendant's mark_all_ancestors.
+    """
+    source_package_root = tmp_path / "source"
+    destination_root = tmp_path / "dest"
+    source_package_root.mkdir()
+    destination_root.mkdir()
+
+    # Create deep nesting: a/b/c/d/e/f/dot-deepfile
+    deep_path = Path("a/b/c/d/e/f")
+    file_path = deep_path / "dot-deepfile"
+    (source_package_root / deep_path).mkdir(parents=True)
+    (source_package_root / file_path).write_text("deep content")
+
+    plan = plan_install(source_package_root, destination_root)
+
+    # All directories should be CREATE (to support the renamed file at the leaf)
+    for part_count in range(1, 7):  # a, b, c, d, e, f
+        parts = ["a", "b", "c", "d", "e", "f"][:part_count]
+        subdir_path = Path("/".join(parts))
+        assert plan[subdir_path].action == Action.CREATE, f"{subdir_path} should be CREATE"
+
+    # The file should be LINK with renaming
+    assert plan[file_path].action == Action.LINK
+    assert plan[file_path].requires_rename
+    assert plan[file_path].relative_destination_path == Path("a/b/c/d/e/f/.deepfile")
+
+
+def test_install_deep_nesting_execute(tmp_path, isolated_db):
+    """
+    Test that deeply nested directories with renamed leaf actually install without error.
+
+    This is an integration test that verifies the full install flow works,
+    not just the planning phase.
+    """
+    from typer.testing import CliRunner
+
+    from dotx.cli import app
+
+    source_package_root = tmp_path / "source"
+    destination_root = tmp_path / "dest"
+    source_package_root.mkdir()
+    destination_root.mkdir()
+
+    # Create deep nesting: a/b/c/d/e/f/dot-deepfile
+    deep_path = Path("a/b/c/d/e/f")
+    file_path = deep_path / "dot-deepfile"
+    (source_package_root / deep_path).mkdir(parents=True)
+    (source_package_root / file_path).write_text("deep content")
+
+    runner = CliRunner()
+
+    # Execute install via CLI - should not raise an error
+    result = runner.invoke(app, [f"--target={destination_root}", "install", str(source_package_root)])
+
+    assert result.exit_code == 0, f"Install failed: {result.output}"
+
+    # Verify: all directories should be real directories (CREATE), not symlinks
+    for part_count in range(1, 7):
+        parts = ["a", "b", "c", "d", "e", "f"][:part_count]
+        dir_path = destination_root / "/".join(parts)
+        assert dir_path.is_dir(), f"{dir_path} should be a directory"
+        assert not dir_path.is_symlink(), f"{dir_path} should NOT be a symlink"
+
+    # The file should be a symlink with the renamed name (.deepfile, not dot-deepfile)
+    deep_file_dest = destination_root / "a/b/c/d/e/f/.deepfile"
+    assert deep_file_dest.is_symlink()
+    assert deep_file_dest.exists()
+    assert deep_file_dest.read_text() == "deep content"

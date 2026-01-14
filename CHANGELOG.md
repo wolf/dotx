@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.2.1] - 2026-01-14
+
+### Fixed
+- **Deep nesting bug**: Installing packages with deeply nested `dot-` files (e.g., `a/b/c/d/e/f/dot-config`) now works correctly. Previously, parent directories were incorrectly marked for symlinking instead of creation, causing `FileExistsError` during installation.
+- **Dry-run output clarity**: `--dry-run` mode now clearly indicates it's a dry run with `[DRY RUN] Would execute the equivalent of:` header and `[DRY RUN] Would install/remove...` summary messages, instead of output that looked identical to actual execution.
+
+### Added
+- Tests for dry-run output indicators
+- Tests for deep nesting with renamed leaf files
+
 ## [3.2.0] - 2026-01-06
 
 ### Added
@@ -213,7 +223,11 @@ EOF
 dotx install bash
 ```
 
-[Unreleased]: https://github.com/wolf/dotx/compare/v3.1.1...HEAD
+[Unreleased]: https://github.com/wolf/dotx/compare/v3.2.1...HEAD
+[3.2.1]: https://github.com/wolf/dotx/compare/v3.2.0...v3.2.1
+[3.2.0]: https://github.com/wolf/dotx/compare/v3.1.3...v3.2.0
+[3.1.3]: https://github.com/wolf/dotx/compare/v3.1.2...v3.1.3
+[3.1.2]: https://github.com/wolf/dotx/compare/v3.1.1...v3.1.2
 [3.1.1]: https://github.com/wolf/dotx/compare/v3.1.0...v3.1.1
 [3.1.0]: https://github.com/wolf/dotx/compare/v3.0.0...v3.1.0
 [3.0.0]: https://github.com/wolf/dotx/compare/v2.2.1...v3.0.0
