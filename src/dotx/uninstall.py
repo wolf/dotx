@@ -11,7 +11,8 @@ Exported functions:
 import os
 from pathlib import Path
 
-from dotx.plan import Action, Plan, mark_all_descendents
+from dotx.options import is_xdg_mode
+from dotx.plan import Action, Plan, mark_all_descendents, resolve_destination
 from dotx.install import plan_install_paths
 
 
@@ -19,9 +20,13 @@ def plan_uninstall(source_package_root: Path, destination_root: Path) -> Plan:
     """
     Create a plan to uninstall files from destination_root that link to source_package_root.
 
+    Respects XDG mode: when enabled, .config/*, .local/share/*, .cache/* are resolved to their
+    respective XDG Base Directory paths when checking for symlinks to remove.
+
     Returns: a `Plan` with actions set to UNLINK for symlinks pointing to the source package
     """
     plan: Plan = plan_install_paths(source_package_root)
+    xdg_mode = is_xdg_mode()
 
     for current_root, _, child_files in os.walk(source_package_root):
         current_root_path = Path(current_root)
@@ -36,15 +41,18 @@ def plan_uninstall(source_package_root: Path, destination_root: Path) -> Plan:
             child_relative_source_path = relative_root_path / child
             if child_relative_source_path not in plan:
                 continue
-            destination_path = (
-                destination_root
-                / plan[child_relative_source_path].relative_destination_path
+            destination_path = resolve_destination(
+                plan[child_relative_source_path].relative_destination_path,
+                destination_root,
+                xdg_mode,
             )
             if destination_path.is_symlink():
                 plan[child_relative_source_path].action = Action.UNLINK
 
-        destination_path = (
-            destination_root / plan[relative_root_path].relative_destination_path
+        destination_path = resolve_destination(
+            plan[relative_root_path].relative_destination_path,
+            destination_root,
+            xdg_mode,
         )
         action = None
         if not destination_path.exists():

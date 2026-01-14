@@ -679,3 +679,91 @@ def test_install_deep_nesting_execute(tmp_path, isolated_db):
     assert deep_file_dest.is_symlink()
     assert deep_file_dest.exists()
     assert deep_file_dest.read_text() == "deep content"
+
+
+# --- XDG Mode Tests ---
+
+
+def test_resolve_destination_no_xdg():
+    """Test that resolve_destination without XDG mode just joins paths."""
+    from dotx.plan import resolve_destination
+
+    default_root = Path("/home/user")
+    relative_path = Path(".config/app/config.toml")
+
+    result = resolve_destination(relative_path, default_root, xdg_mode=False)
+
+    assert result == Path("/home/user/.config/app/config.toml")
+
+
+def test_resolve_destination_xdg_config(monkeypatch):
+    """Test that resolve_destination with XDG mode redirects .config paths."""
+    from dotx.plan import resolve_destination
+
+    # Set custom XDG_CONFIG_HOME
+    monkeypatch.setenv("XDG_CONFIG_HOME", "/custom/config")
+
+    default_root = Path("/home/user")
+    relative_path = Path(".config/app/config.toml")
+
+    result = resolve_destination(relative_path, default_root, xdg_mode=True)
+
+    assert result == Path("/custom/config/app/config.toml")
+
+
+def test_resolve_destination_xdg_data(monkeypatch):
+    """Test that resolve_destination with XDG mode redirects .local/share paths."""
+    from dotx.plan import resolve_destination
+
+    # Set custom XDG_DATA_HOME
+    monkeypatch.setenv("XDG_DATA_HOME", "/custom/data")
+
+    default_root = Path("/home/user")
+    relative_path = Path(".local/share/app/data.db")
+
+    result = resolve_destination(relative_path, default_root, xdg_mode=True)
+
+    assert result == Path("/custom/data/app/data.db")
+
+
+def test_resolve_destination_xdg_cache(monkeypatch):
+    """Test that resolve_destination with XDG mode redirects .cache paths."""
+    from dotx.plan import resolve_destination
+
+    # Set custom XDG_CACHE_HOME
+    monkeypatch.setenv("XDG_CACHE_HOME", "/custom/cache")
+
+    default_root = Path("/home/user")
+    relative_path = Path(".cache/app/cache.db")
+
+    result = resolve_destination(relative_path, default_root, xdg_mode=True)
+
+    assert result == Path("/custom/cache/app/cache.db")
+
+
+def test_resolve_destination_xdg_non_xdg_path(monkeypatch):
+    """Test that paths not matching XDG prefixes still use default_root in XDG mode."""
+    from dotx.plan import resolve_destination
+
+    monkeypatch.setenv("XDG_CONFIG_HOME", "/custom/config")
+
+    default_root = Path("/home/user")
+    relative_path = Path(".bashrc")
+
+    result = resolve_destination(relative_path, default_root, xdg_mode=True)
+
+    assert result == Path("/home/user/.bashrc")
+
+
+def test_resolve_destination_xdg_exact_match(monkeypatch):
+    """Test that exact XDG prefix paths resolve to XDG directory itself."""
+    from dotx.plan import resolve_destination
+
+    monkeypatch.setenv("XDG_CONFIG_HOME", "/custom/config")
+
+    default_root = Path("/home/user")
+    relative_path = Path(".config")
+
+    result = resolve_destination(relative_path, default_root, xdg_mode=True)
+
+    assert result == Path("/custom/config")

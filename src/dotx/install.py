@@ -23,6 +23,7 @@ from loguru import logger
 
 from dotx.hierarchy import HierarchicalPatternMatcher
 from dotx.ignore import IgnoreRules
+from dotx.options import is_xdg_mode
 from dotx.plan import (
     Action,
     Plan,
@@ -30,6 +31,7 @@ from dotx.plan import (
     log_extracted_plan,
     mark_all_ancestors,
     mark_immediate_children,
+    resolve_destination,
 )
 
 
@@ -99,9 +101,13 @@ def plan_install(source_package_root: Path, destination_root: Path) -> Plan:
     already exists at the destination, which must be created, renamed, linked, or already exist in a way that causes
     a failure.
 
+    Respects XDG mode: when enabled, .config/*, .local/share/*, .cache/* are resolved to their
+    respective XDG Base Directory paths when checking for existing files.
+
     Returns: a `Plan` with all the information needed to complete an install, or to fail
     """
     plan: Plan = plan_install_paths(source_package_root)
+    xdg_mode = is_xdg_mode()
 
     # Load always-create patterns to determine which directories must be real (never symlinked)
     always_create_matcher = HierarchicalPatternMatcher(".always-create")
@@ -148,9 +154,10 @@ def plan_install(source_package_root: Path, destination_root: Path) -> Plan:
             if plan[child_relative_source_path].requires_rename:
                 found_children_to_rename = True
             # Fail if we would overwrite an existing file or symlink pointing elsewhere
-            destination_path = (
-                destination_root
-                / plan[child_relative_source_path].relative_destination_path
+            destination_path = resolve_destination(
+                plan[child_relative_source_path].relative_destination_path,
+                destination_root,
+                xdg_mode,
             )
             if destination_path.is_symlink():
                 # Symlink exists - only OK if it already points to our source
@@ -174,7 +181,7 @@ def plan_install(source_package_root: Path, destination_root: Path) -> Plan:
         if current_root_path == source_package_root:
             # Package root always EXISTS (it's the target directory)
             plan[relative_root_path].action = Action.EXISTS
-        elif (destination_root / relative_destination_root_path).exists():
+        elif resolve_destination(relative_destination_root_path, destination_root, xdg_mode).exists():
             # Directory already exists at destination - merge into it
             # This takes precedence over always-create because we can't create what exists
             plan[relative_root_path].action = Action.EXISTS

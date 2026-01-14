@@ -34,7 +34,7 @@ from typing import TYPE_CHECKING
 from loguru import logger
 
 from dotx.database import NoOpDB
-from dotx.options import is_dry_run
+from dotx.options import is_dry_run, is_xdg_mode, get_xdg_paths
 
 if TYPE_CHECKING:
     from dotx.database import InstallationDB
@@ -91,6 +91,33 @@ class PlanNode:
 Plan = dict[Path, PlanNode]
 
 
+def resolve_destination(relative_path: Path, default_root: Path, xdg_mode: bool = False) -> Path:
+    """
+    Resolve the absolute destination path, respecting XDG mode.
+
+    In normal mode: default_root / relative_path
+    In XDG mode: redirects .config/*, .local/share/*, .cache/* to XDG directories
+    """
+    if not xdg_mode:
+        return default_root / relative_path
+
+    path_str = str(relative_path)
+    xdg_paths = get_xdg_paths()
+
+    # Check XDG prefixes in order of specificity (longer first)
+    for prefix in sorted(xdg_paths.keys(), key=len, reverse=True):
+        if path_str == prefix:
+            # Exact match - return the XDG dir itself
+            return xdg_paths[prefix]
+        if path_str.startswith(prefix + "/"):
+            # Path under XDG dir - remap it
+            suffix = path_str[len(prefix) + 1:]
+            return xdg_paths[prefix] / suffix
+
+    # No XDG prefix match - use default (HOME)
+    return default_root / relative_path
+
+
 def execute_plan(
     source_package_root: Path,
     destination_root: Path,
@@ -104,18 +131,28 @@ def execute_plan(
     links, or unlinks files using pathlib native functions.
 
     If a database is provided, records installations (CREATE, LINK) and removals (UNLINK).
+
+    Respects XDG mode: when enabled, .config/*, .local/share/*, .cache/* are redirected
+    to their respective XDG Base Directory paths.
     """
     # Use NoOpDB if no database provided
     working_db = db if db is not None else NoOpDB()
+
+    # Check XDG mode
+    xdg_mode = is_xdg_mode()
 
     # Extract package info for database tracking
     package_root = source_package_root.parent
     package_name = source_package_root.name
 
+    def get_destination(step: PlanNode) -> Path:
+        """Get the absolute destination path, respecting XDG mode."""
+        return resolve_destination(step.relative_destination_path, destination_root, xdg_mode)
+
     def build_shell_command(step: PlanNode):
         """Print the shell command corresponding to exactly one `PlanNode`"""
         command = None
-        destination = destination_root / step.relative_destination_path
+        destination = get_destination(step)
         source = (source_package_root / step.relative_source_path).resolve()
         try:
             source = source.relative_to(destination.parent)
@@ -147,7 +184,7 @@ def execute_plan(
 
         Records installations and removals in database.
         """
-        destination = destination_root / step.relative_destination_path
+        destination = get_destination(step)
         source = (source_package_root / step.relative_source_path).resolve()
         try:
             source = source.relative_to(destination.parent)

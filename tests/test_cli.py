@@ -299,3 +299,93 @@ def test_cli_uninstall_dry_run_shows_indicator(tmp_path, isolated_db):
     assert "rm" in result.output
     # File should still exist after dry-run
     assert (target / "file1").exists()
+
+
+def test_cli_xdg_and_target_mutually_exclusive(tmp_path, isolated_db):
+    """Test that --xdg and --target cannot be used together."""
+    source = tmp_path / "source"
+    source.mkdir()
+    (source / "file1").write_text("content")
+
+    runner = CliRunner()
+
+    # Try to use both --xdg and --target
+    result = runner.invoke(app, ["--xdg", f"--target={tmp_path}", "install", str(source)])
+
+    assert result.exit_code != 0
+    assert "mutually exclusive" in result.output.lower()
+
+
+def _has_symlink_ancestor(path: Path) -> bool:
+    """Check if any ancestor of path is a symlink."""
+    for parent in path.parents:
+        if parent.is_symlink():
+            return True
+    return path.is_symlink()
+
+
+def test_cli_xdg_mode_install_to_xdg_paths(tmp_path, monkeypatch, isolated_db):
+    """Test that --xdg mode installs .config files to XDG_CONFIG_HOME."""
+    source = tmp_path / "source"
+    source.mkdir()
+
+    # Create .config/app directory with config file
+    config_dir = source / "dot-config" / "myapp"
+    config_dir.mkdir(parents=True)
+    (config_dir / "config.toml").write_text("setting = true")
+
+    # Set custom XDG_CONFIG_HOME
+    custom_config = tmp_path / "custom-config"
+    custom_config.mkdir()
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(custom_config))
+
+    runner = CliRunner()
+
+    # Install with --xdg mode
+    result = runner.invoke(app, ["--xdg", "install", str(source)])
+
+    assert result.exit_code == 0, f"Install failed: {result.output}"
+
+    # File should be accessible at XDG path
+    config_file = custom_config / "myapp" / "config.toml"
+    assert config_file.exists(), "config.toml should be accessible at XDG path"
+
+    # File should be connected to source via symlink (either directly or via ancestor)
+    assert _has_symlink_ancestor(config_file), "File or ancestor should be a symlink"
+
+    # Content should match source
+    assert config_file.read_text() == "setting = true"
+
+
+def test_cli_xdg_mode_install_and_uninstall_roundtrip(tmp_path, monkeypatch, isolated_db):
+    """Test that --xdg mode works for both install and uninstall."""
+    source = tmp_path / "source"
+    source.mkdir()
+
+    # Create .config/app directory with config file
+    config_dir = source / "dot-config" / "myapp"
+    config_dir.mkdir(parents=True)
+    (config_dir / "config.toml").write_text("setting = true")
+
+    # Set custom XDG_CONFIG_HOME
+    custom_config = tmp_path / "custom-config"
+    custom_config.mkdir()
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(custom_config))
+
+    runner = CliRunner()
+
+    # Install with --xdg mode
+    result = runner.invoke(app, ["--xdg", "install", str(source)])
+    assert result.exit_code == 0, f"Install failed: {result.output}"
+
+    # Verify file is installed and accessible
+    config_file = custom_config / "myapp" / "config.toml"
+    assert config_file.exists(), "File should be accessible at XDG path"
+    assert _has_symlink_ancestor(config_file), "File or ancestor should be a symlink"
+
+    # Uninstall with --xdg mode
+    result = runner.invoke(app, ["--xdg", "uninstall", str(source)])
+    assert result.exit_code == 0, f"Uninstall failed: {result.output}"
+
+    # File should be removed (not accessible anymore)
+    assert not config_file.exists(), "File should be removed after uninstall"

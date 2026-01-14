@@ -68,13 +68,20 @@ def main(
     target: Annotated[
         Path | None,
         typer.Option(
-            help="Where to install (defaults to $HOME)",
+            help="Where to install (defaults to $HOME). Mutually exclusive with --xdg.",
             exists=True,
             file_okay=False,
             dir_okay=True,
             writable=True,
         ),
     ] = None,
+    xdg: Annotated[
+        bool,
+        typer.Option(
+            "--xdg/--no-xdg",
+            help="Use XDG Base Directory paths (.config→$XDG_CONFIG_HOME, etc). Mutually exclusive with --target.",
+        ),
+    ] = False,
     dry_run: Annotated[
         bool,
         typer.Option("--dry-run/--no-dry-run", help="Just echo; don't actually (un)install"),
@@ -91,6 +98,10 @@ def main(
     """
     configure_logging(debug, verbose, log)
 
+    # Check mutual exclusivity
+    if xdg and target is not None:
+        raise typer.BadParameter("--xdg and --target are mutually exclusive")
+
     # Store options in context for commands to access
     ctx.ensure_object(dict)
     if target:
@@ -101,6 +112,7 @@ def main(
     set_option("DEBUG", debug, ctx)
     set_option("VERBOSE", verbose, ctx)
     set_option("DRYRUN", dry_run, ctx)
+    set_option("XDG", xdg, ctx)
 
     if log:
         set_option("LOG", log, ctx)
