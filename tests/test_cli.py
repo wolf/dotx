@@ -389,3 +389,69 @@ def test_cli_xdg_mode_install_and_uninstall_roundtrip(tmp_path, monkeypatch, iso
 
     # File should be removed (not accessible anymore)
     assert not config_file.exists(), "File should be removed after uninstall"
+
+
+def test_cli_uninstall_with_deleted_source(tmp_path, isolated_db):
+    """Test that uninstall works even when source package has been deleted."""
+    import shutil
+
+    source = tmp_path / "source"
+    source.mkdir()
+    target = tmp_path / "target"
+    target.mkdir()
+
+    # Create source files
+    (source / "file1.txt").write_text("content1")
+    (source / "file2.txt").write_text("content2")
+
+    runner = CliRunner()
+
+    # Install the package
+    result = runner.invoke(app, [f"--target={target}", "install", str(source)])
+    assert result.exit_code == 0, f"Install failed: {result.output}"
+
+    # Verify files are installed
+    assert (target / "file1.txt").is_symlink()
+    assert (target / "file2.txt").is_symlink()
+
+    # Delete the source package
+    shutil.rmtree(source)
+    assert not source.exists()
+
+    # Uninstall should still work using database (use --verbose to see "source deleted" message)
+    result = runner.invoke(app, [f"--target={target}", "--verbose", "uninstall", str(source)])
+    assert result.exit_code == 0, f"Uninstall failed: {result.output}"
+    assert "source deleted" in result.output.lower()
+
+    # Symlinks should be removed (not just broken)
+    assert not (target / "file1.txt").is_symlink()
+    assert not (target / "file2.txt").is_symlink()
+
+
+def test_cli_uninstall_deleted_source_dry_run(tmp_path, isolated_db):
+    """Test dry-run uninstall with deleted source shows correct output."""
+    import shutil
+
+    source = tmp_path / "source"
+    source.mkdir()
+    target = tmp_path / "target"
+    target.mkdir()
+
+    # Create and install
+    (source / "file1.txt").write_text("content")
+
+    runner = CliRunner()
+    result = runner.invoke(app, [f"--target={target}", "install", str(source)])
+    assert result.exit_code == 0
+
+    # Delete source
+    shutil.rmtree(source)
+
+    # Dry-run uninstall
+    result = runner.invoke(app, [f"--target={target}", "--dry-run", "uninstall", str(source)])
+    assert result.exit_code == 0
+    assert "[DRY RUN]" in result.output
+    assert "rm" in result.output
+
+    # Symlink should still exist after dry-run (even though it's broken)
+    assert (target / "file1.txt").is_symlink()

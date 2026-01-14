@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.3.1] - 2026-01-14
+
+### Fixed
+- **Uninstall with deleted source**: `dotx uninstall <path>` now works even if the source package directory has been deleted. Falls back to database records to find and remove installed symlinks.
+
+### Changed
+- Removed `exists=True` constraint from uninstall command's source argument
+- Uninstall now partitions sources using set math for cleaner code
+
 ## [3.3.0] - 2026-01-14
 
 ### Added
@@ -250,7 +259,8 @@ EOF
 dotx install bash
 ```
 
-[Unreleased]: https://github.com/wolf/dotx/compare/v3.3.0...HEAD
+[Unreleased]: https://github.com/wolf/dotx/compare/v3.3.1...HEAD
+[3.3.1]: https://github.com/wolf/dotx/compare/v3.3.0...v3.3.1
 [3.3.0]: https://github.com/wolf/dotx/compare/v3.2.2...v3.3.0
 [3.2.2]: https://github.com/wolf/dotx/compare/v3.2.1...v3.2.2
 [3.2.1]: https://github.com/wolf/dotx/compare/v3.2.0...v3.2.1
