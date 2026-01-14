@@ -85,7 +85,7 @@ def register_commands(app: typer.Typer):
             packages = db.get_all_packages()
 
             if not packages:
-                console.print("[yellow]No packages installed.[/yellow]")
+                console.print("[yellow]No packages in database. Run `dotx sync --package-root <dir>` to rebuild from existing symlinks.[/yellow]")
                 return
 
             if as_commands:
@@ -100,17 +100,30 @@ def register_commands(app: typer.Typer):
                 table.add_column("Package", style="cyan", no_wrap=True)
                 table.add_column("Files", justify="right", style="magenta")
                 table.add_column("Last Install", style="green")
+                table.add_column("Status", style="green")
 
+                missing_count = 0
                 for pkg in packages:
                     # Show full package path (package_root / package_name) as documented
-                    package_path = str(Path(pkg["package_root"]) / pkg["package_name"])
+                    package_path = Path(pkg["package_root"]) / pkg["package_name"]
                     file_count = str(pkg["file_count"])
                     latest = _format_timestamp(pkg["latest_install"])
-                    table.add_row(package_path, file_count, latest)
+
+                    # Check if source still exists
+                    if package_path.exists():
+                        status = "[green]✓[/green]"
+                    else:
+                        status = "[yellow]⚠ source missing[/yellow]"
+                        missing_count += 1
+
+                    table.add_row(str(package_path), file_count, latest, status)
 
                 console.print()
                 console.print(table)
-                console.print(f"\n[bold]Total: {len(packages)} package(s)[/bold]\n")
+                console.print(f"\n[bold]Total: {len(packages)} package(s)[/bold]")
+                if missing_count > 0:
+                    console.print(f"[yellow]⚠ {missing_count} package(s) have missing source directories. Run `dotx verify` for details.[/yellow]")
+                console.print()
 
         logger.info("list finished")
 

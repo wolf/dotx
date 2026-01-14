@@ -99,11 +99,18 @@ def register_command(app: typer.Typer):
                 if total_dirs:
                     summary_parts.append(f"{total_dirs} dir(s)")
 
-                summary = " and ".join(summary_parts) if summary_parts else "nothing"
-                if is_dry_run(ctx):
-                    console.print(f"\n[yellow][DRY RUN] Would install {summary} from {len(sources)} package(s)[/yellow]")
+                if summary_parts:
+                    summary = " and ".join(summary_parts)
+                    if is_dry_run(ctx):
+                        console.print(f"\n[yellow][DRY RUN] Would install {summary} from {len(sources)} package(s)[/yellow]")
+                    else:
+                        console.print(f"\n[green]✓ Installed {summary} from {len(sources)} package(s)[/green]")
                 else:
-                    console.print(f"\n[green]✓ Installed {summary} from {len(sources)} package(s)[/green]")
+                    # Empty package(s) - nothing to install
+                    if is_dry_run(ctx):
+                        console.print(f"\n[yellow][DRY RUN] Would install nothing from {len(sources)} package(s) (nothing to record in database)[/yellow]")
+                    else:
+                        console.print(f"\n[green]✓ Installed nothing from {len(sources)} package(s) (nothing to record in database)[/green]")
             else:
                 console.print("[red]✗ Refusing to install - conflicts detected[/red]")
 

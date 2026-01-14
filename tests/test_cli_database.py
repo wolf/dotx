@@ -301,7 +301,7 @@ def test_cli_list_no_packages(tmp_path, monkeypatch):
     result = runner.invoke(app, ["list"])
 
     assert result.exit_code == 0
-    assert "No packages installed" in result.output
+    assert "No packages in database" in result.output
 
 
 def test_cli_list_with_packages(tmp_path, monkeypatch):
@@ -866,3 +866,44 @@ def test_list_shows_correct_package_names_after_install(tmp_path, monkeypatch):
     result = runner.invoke(app, ["list"])
     assert result.exit_code == 0, f"list failed: {result.output}"
     assert "2 package(s)" in result.output  # Should show 2 packages
+
+
+def test_cli_list_shows_missing_source_status(tmp_path, monkeypatch):
+    """Test 'dotx list' shows status indicator when source package is missing."""
+    import shutil
+
+    # Override XDG_DATA_HOME
+    data_dir = tmp_path / "config"
+    data_dir.mkdir()
+    monkeypatch.setenv("XDG_DATA_HOME", str(data_dir))
+
+    # Create and install packages
+    source1 = tmp_path / "source1"
+    source1.mkdir()
+    (source1 / "file1").write_text("content")
+
+    source2 = tmp_path / "source2"
+    source2.mkdir()
+    (source2 / "file2").write_text("content")
+
+    target = tmp_path / "target"
+    target.mkdir()
+
+    runner = CliRunner()
+
+    # Install both packages
+    result = runner.invoke(app, [f"--target={target}", "install", str(source1)])
+    assert result.exit_code == 0
+    result = runner.invoke(app, [f"--target={target}", "install", str(source2)])
+    assert result.exit_code == 0
+
+    # Delete one source package
+    shutil.rmtree(source1)
+    assert not source1.exists()
+
+    # List packages - should show warning for missing source
+    result = runner.invoke(app, ["list"])
+    assert result.exit_code == 0
+    # The warning message at the bottom should be visible
+    assert "1 package(s) have missing source directories" in result.output
+    assert "dotx verify" in result.output

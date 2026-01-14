@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.3.2] - 2026-01-14
+
+### Improved
+- **`dotx list` status column**: Now shows a "Status" column indicating whether source packages still exist. Displays `✓` for healthy packages and `⚠ source missing` for packages whose source directories have been deleted.
+- **Empty database message**: `dotx list` now shows "No packages in database. Run `dotx sync --package-root <dir>` to rebuild from existing symlinks" instead of the misleading "No packages installed."
+- **Empty package message**: Installing an empty package (or one with all files ignored) now shows "(nothing to record in database)" for clarity.
+
+### Documentation
+- Updated manual verification doc to clarify that empty packages don't create database entries.
+
 ## [3.3.1] - 2026-01-14
 
 ### Fixed
@@ -259,7 +269,8 @@ EOF
 dotx install bash
 ```
 
-[Unreleased]: https://github.com/wolf/dotx/compare/v3.3.1...HEAD
+[Unreleased]: https://github.com/wolf/dotx/compare/v3.3.2...HEAD
+[3.3.2]: https://github.com/wolf/dotx/compare/v3.3.1...v3.3.2
 [3.3.1]: https://github.com/wolf/dotx/compare/v3.3.0...v3.3.1
 [3.3.0]: https://github.com/wolf/dotx/compare/v3.2.2...v3.3.0
 [3.2.2]: https://github.com/wolf/dotx/compare/v3.2.1...v3.2.2
