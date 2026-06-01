@@ -1,16 +1,17 @@
 """
 This module provides convenience functions for accessing user-data on the associated context.
 
-Note: typer is built on click, so we use click.Context for type annotations.
+Note: typer is built on click, so we use typer.Context for type annotations.
 """
 
 from pathlib import Path
 from typing import Any
 
 import click
+import typer
 
 
-def set_option(option: str, value: Any, ctx: click.Context | None = None) -> bool:
+def set_option(option: str, value: Any, ctx: typer.Context | None = None) -> bool:
     """
     Set an option value in the Typer context.
 
@@ -28,7 +29,7 @@ def set_option(option: str, value: Any, ctx: click.Context | None = None) -> boo
     return False
 
 
-def get_option(option: str, default_for_option: Any = None, ctx: click.Context | None = None) -> Any:
+def get_option(option: str, default_for_option: Any = None, ctx: typer.Context | None = None) -> Any:
     """
     Get an option value from the context.
 
@@ -44,22 +45,22 @@ def get_option(option: str, default_for_option: Any = None, ctx: click.Context |
     return default_for_option
 
 
-def is_verbose_mode(ctx: click.Context | None = None) -> bool:
+def is_verbose_mode(ctx: typer.Context | None = None) -> bool:
     """Check if verbose mode is enabled."""
     return get_option("VERBOSE", False, ctx)
 
 
-def is_debug_mode(ctx: click.Context | None = None) -> bool:
+def is_debug_mode(ctx: typer.Context | None = None) -> bool:
     """Check if debug mode is enabled."""
     return get_option("DEBUG", False, ctx)
 
 
-def is_dry_run(ctx: click.Context | None = None) -> bool:
+def is_dry_run(ctx: typer.Context | None = None) -> bool:
     """Check if dry-run mode is enabled."""
     return get_option("DRYRUN", False, ctx)
 
 
-def is_xdg_mode(ctx: click.Context | None = None) -> bool:
+def is_xdg_mode(ctx: typer.Context | None = None) -> bool:
     """Check if XDG mode is enabled."""
     return get_option("XDG", False, ctx)
 

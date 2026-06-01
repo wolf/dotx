@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.3.3] - 2026-06-01
+
+### Fixed
+- **typer API changes**: typer now requires `typer.Context` instead of `click.Context`.
+
 ## [3.3.2] - 2026-01-14
 
 ### Improved

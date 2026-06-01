@@ -52,7 +52,7 @@ def configure_logging(debug: bool, verbose: bool, log: Path | None):
 
 @app.callback()
 def main(
-    ctx: click.Context,
+    ctx: typer.Context,
     debug: Annotated[
         bool,
         typer.Option("--debug/--no-debug", help="Enable debug logging"),
